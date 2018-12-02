@@ -5,11 +5,11 @@ import sys
 
 from wsgi_server import WSGIServer as Worker
 from datetime import datetime
-from pysigset import suspended_signals
 from http_utils.base import get_http_status_text, get_ext_from_mime_type, get_mime_type_from_ext
 from http.request import Request
 from http.response import Response
 from http.content_negotiator import ContentNegotiator
+from pysigset import suspended_signals
 
 SERVER_ADDRESS = (HOST, PORT) = '127.0.0.1', 8888
 REQUEST_QUEUE_SIZE = 5
@@ -53,15 +53,12 @@ class MasterWorker():
         print('Parent PID (PPID): {pid}\n'.format(pid=os.getpid()))
     
     def shutdown_workers(self, signum, frame):
-        if self.pid != os.getpid():
-            print("shutting down pid: %d" % os.getpid())
-            os._exit(0)
+        print("shutting down pid: %d" % os.getpid())
+        os._exit(0)
     
     def create_worker(self):
-        r, w = os.pipe()
         pid = os.fork()
         if pid == 0:
-            os.close(w)
             worker = Worker(self.server_name, self.server_port)
             worker.set_app(self.application)
             while True:
@@ -71,7 +68,6 @@ class MasterWorker():
                 worker.handle_request()
             os._exit(0)
         else:
-            os.close(r)
             print("Created worker with pid: %d" % pid)
             return pid
 
@@ -92,9 +88,12 @@ class MasterWorker():
             pid = self.create_worker()
         
         with suspended_signals(signal.SIGINT):
-            while os.wait() != -1:
-                print("child process terminated")
-                continue
+            try:
+                while os.wait() != -1:
+                    print("child process terminated")
+                    continue
+            except OSError:
+                pass
             print("Exiting...")
             print("Bye Bye!")
 
