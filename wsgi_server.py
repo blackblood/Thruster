@@ -19,12 +19,15 @@ class WSGIServer(object):
 		self.application = application
 
 	def handle_request(self):
-		self.request_data = self.client_connection.recv(1024)
-		print(''.join('< {line} \n').format(line=line) for line in self.request_data.splitlines())
-		self.parse_request(self.request_data)
-		env = self.set_env()
-		result = self.application(env, self.start_response)
-		self.finish_response(result)
+		try:
+			self.request_data = self.client_connection.recv(1024)
+			print(''.join('< {line} \n').format(line=line) for line in self.request_data.splitlines())
+			self.parse_request(self.request_data)
+			env = self.set_env()
+			result = self.application(env, self.start_response)
+			self.finish_response(result)
+		except Exception:
+			print("Error occurred in handle_request")
 
 	def parse_request(self, text):
 		print("request_line = %s" % self.request_data)
