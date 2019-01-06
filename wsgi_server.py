@@ -3,6 +3,8 @@ import StringIO
 import sys
 import datetime
 import time
+import traceback
+import ipdb
 
 class WSGIServer(object):
 	address_family = socket.AF_INET
@@ -21,19 +23,18 @@ class WSGIServer(object):
 	def handle_request(self):
 		try:
 			self.request_data = self.client_connection.recv(1024)
-			print(''.join('< {line} \n').format(line=line) for line in self.request_data.splitlines())
 			self.parse_request(self.request_data)
 			env = self.set_env()
 			result = self.application(env, self.start_response)
 			self.finish_response(result)
 		except Exception:
 			print("Error occurred in handle_request")
+			print(traceback.format_exc())
 
 	def parse_request(self, text):
-		print("request_line = %s" % self.request_data)
-		request_line = text.splitlines()[0]
-		request_line = request_line.rstrip('\r\n')
-		(self.request_method, self.path, self.request_version) = request_line.split()
+		if type(self.request_data) != str:
+			print("request_line = %s" % self.request_data)
+			print("bin(self.request_data) = {}".format(bin(self.request_data)))
 
 	def set_env(self):
 		env = {}
@@ -57,6 +58,10 @@ class WSGIServer(object):
 			('Date', datetime.datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')),
 			('Server', 'WSGIServer 0.2')
 		]
+
+		# status = "426"
+		# server_headers.append(("Upgrade", "TLS/1.1, HTTP/1.1"))
+		# server_headers.append(("Connection", "Upgrade"))
 
 		self.headers_set = [status, server_headers + response_headers]
 
