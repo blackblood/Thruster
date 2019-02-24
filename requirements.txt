@@ -1,1 +1,4 @@
 pysigset==0.3.2
+bitstring
+hpack
+ipdb
