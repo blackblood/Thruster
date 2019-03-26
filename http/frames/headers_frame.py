@@ -14,14 +14,16 @@ class HeadersFrame(Frame):
         Frame.__init__(self, raw_data)
         self.end_stream = self.frame_flags[7]
         self.end_headers = self.frame_flags[5]
-        self.padded = int(self.frame_flags[3])
-        self.priority = int(self.frame_flags[1])
+        self.padded = int(self.frame_flags[4])
+        self.priority = int(self.frame_flags[2])
         self.padding_length = raw_data.read("uint:8") if self.padded else 0
-        self.exclusive = int(raw_data.read("bin:1"))
-        self.stream_dependency = raw_data.read("uint:31")
-        self.priority_weight = raw_data.read("uint:8")
+        self.exclusive = int(raw_data.read("bin:1")) if self.priority else None
+        self.stream_dependency = raw_data.read("uint:31") if self.priority else None
+        self.priority_weight = raw_data.read("uint:8") if self.priority else None
         # Frame body starts from here
-        frame_body_offset = (self.frame_length * 8) - 40
+        frame_body_offset = self.frame_length * 8
+        if self.priority:
+            frame_body_offset -= 40
         if self.padded:
             frame_body_offset -= 8
         self.header_block_fragment = Decoder().decode(raw_data.read(frame_body_offset - (self.padding_length * 8)).bytes)
@@ -44,7 +46,7 @@ class HeadersFrame(Frame):
         self.padded = encoded_flags[4] = int(flags["padded"])
         self.priority = encoded_flags[2] = int(flags["priority"])
         self.header_block_fragment = Encoder().encode(headers)
-        self.frame_length = 0
+        self.frame_length = len(self.header_block_fragment)
         frame_header_format = super(HeadersFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
 
@@ -62,9 +64,8 @@ class HeadersFrame(Frame):
             frame_data.update({"exclusive": str(exclusive)})
             frame_data.update({"stream_dependency": stream_dependency})
             frame_data.update({"weight": priority_weight})
-        
-        self.frame_length += sys.getsizeof(self.header_block_fragment)
-        frame_data.update({"header_block_fragment": binascii.hexlify(self.header_block_fragment)})
+
+        frame_data.update({"header_block_fragment": self.header_block_fragment})
         
         return bitstring.pack(frame_format, **frame_data)
     
@@ -72,13 +73,13 @@ class HeadersFrame(Frame):
         frame_body_format = ""
         if self.padded:
             frame_body_format += "uint:8=padding_length,"
-            self.frame_length += 8
+            self.frame_length += 1
         
         if self.priority:
             frame_body_format += "bin:1=exclusive,"
             frame_body_format += "uint:31=stream_dependency,"
             frame_body_format += "uint:8=weight,"
-            self.frame_length += 40
-        frame_body_format += "hex=header_block_fragment"
+            self.frame_length += 5 
+        frame_body_format += "bytes=header_block_fragment"
 
         return frame_body_format

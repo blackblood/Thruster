@@ -48,6 +48,10 @@ class WSGIServer(object):
 	def parse_request(self, raw_data):
 		if raw_data:
 			raw_data = raw_data.replace("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n", "")
+			if not raw_data:
+				bits = {}
+				self.connection_settings = SettingsFrame(bits)
+				return self.connection_settings
 			bits = bitstring.ConstBitStream(hex=binascii.hexlify(raw_data))
 			frame_length = bits.read("uint:24")
 			frame_type = bits.read("hex:8")
@@ -97,16 +101,16 @@ class WSGIServer(object):
 				'priority': '1'
 			}
 			header_bits = headers_frame.write(flags=flags, headers=response_headers)
+			self.client_connection.sendall(header_bits.bytes)
 			response = ""
 			for data in result:
 				response += data
 			
 			data_frame = DataFrame()
 			data_bits = data_frame.write(flags={'end_stream': '1', 'padded': '0'}, response_body=response)
-			response_bits = bitstring.pack("bits, bits", header_bits, data_bits)
-			import ipdb; ipdb.set_trace()
+			# response_bits = bitstring.pack("bits, bits", header_bits, data_bits)
 			try:
-				self.client_connection.sendall(response_bits.bytes)
+				self.client_connection.sendall(data_bits.bytes)
 			except OSError as e:
 				print(e)
 		except Exception as exp:

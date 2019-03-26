@@ -19,13 +19,16 @@ class DataFrame(Frame):
         self.padded = encoded_flags[4] = int(flags["padded"])
         frame_header_format = super(DataFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
-        bin_encoded_body = bin(int(binascii.hexlify(response_body), 16))
-        frame_length = sys.getsizeof(bin_encoded_body)
+        bin_encoded_body = ""
+        self.frame_length = 0
+        for char in list(response_body):
+            bin_encoded_body += bin(ord(char))
+            self.frame_length += 1
         
         frame_data = {
             'frame_type': DataFrame.FRAME_TYPE,
             'reserved_bit': '1',
-            'frame_length': frame_length,
+            'frame_length': self.frame_length,
             'flags': "".join(map(lambda x: str(x), encoded_flags)),
             'stream_id': 1
         }
@@ -39,6 +42,6 @@ class DataFrame(Frame):
         frame_body_format = ""
         if self.padded:
             frame_body_format += "uint:8=padding_length"
-            self.frame_length += 8
+            self.frame_length += 1
         frame_body_format += "bin=response_payload"
         return frame_body_format
