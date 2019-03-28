@@ -19,11 +19,13 @@ class DataFrame(Frame):
         self.padded = encoded_flags[4] = int(flags["padded"])
         frame_header_format = super(DataFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
-        bin_encoded_body = ""
-        self.frame_length = 0
-        for char in list(response_body):
-            bin_encoded_body += bin(ord(char))
-            self.frame_length += 1
+        bin_encoded_body = bytearray(response_body, "utf-8")
+        self.frame_length = len(bin_encoded_body)
+        import ipdb; ipdb.set_trace()
+        # bin_encoded_body = ""
+        # for char in list(response_body):
+        #     bin_encoded_body += bin(ord(char))
+        #     self.frame_length += 1
         
         frame_data = {
             'frame_type': DataFrame.FRAME_TYPE,
@@ -43,5 +45,5 @@ class DataFrame(Frame):
         if self.padded:
             frame_body_format += "uint:8=padding_length"
             self.frame_length += 1
-        frame_body_format += "bin=response_payload"
+        frame_body_format += "bytes=response_payload"
         return frame_body_format

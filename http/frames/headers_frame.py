@@ -7,8 +7,10 @@ from hpack import Encoder, Decoder
 class HeadersFrame(Frame):
     FRAME_TYPE='0x01'
 
-    def __init__(self, connection_settings):
+    def __init__(self, connection_settings, encoder, decoder):
         self.connection_settings = connection_settings
+        self.encoder = encoder
+        self.decoder = decoder
 
     def read(self, raw_data, padding_length=0, exclusive=False, stream_id='0x0'):
         Frame.__init__(self, raw_data)
@@ -26,7 +28,7 @@ class HeadersFrame(Frame):
             frame_body_offset -= 40
         if self.padded:
             frame_body_offset -= 8
-        self.header_block_fragment = Decoder().decode(raw_data.read(frame_body_offset - (self.padding_length * 8)).bytes)
+        self.header_block_fragment = self.decoder.decode(raw_data.read(frame_body_offset - (self.padding_length * 8)).bytes)
         
         self.headers = {}
         for header_field in self.header_block_fragment:
@@ -45,7 +47,7 @@ class HeadersFrame(Frame):
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
         self.padded = encoded_flags[4] = int(flags["padded"])
         self.priority = encoded_flags[2] = int(flags["priority"])
-        self.header_block_fragment = Encoder().encode(headers)
+        self.header_block_fragment = self.encoder.encode(headers)
         self.frame_length = len(self.header_block_fragment)
         frame_header_format = super(HeadersFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()

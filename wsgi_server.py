@@ -22,6 +22,8 @@ class WSGIServer(object):
 		self.server_name = server_name
 		self.server_port = server_port
 		self.client_connection = None
+		self.header_encoder = Encoder()
+		self.header_decoder = Decoder()
 		self.request_data = ""
 		self.headers_set = []
 
@@ -59,7 +61,7 @@ class WSGIServer(object):
 				self.connection_settings = SettingsFrame(bits)
 				return self.connection_settings
 			if frame_type == '01':
-				header_frame = HeadersFrame(self.connection_settings)
+				header_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
 				header_frame.read(bits)
 				return header_frame
 
@@ -93,7 +95,7 @@ class WSGIServer(object):
 		try:
 			status, response_headers = self.headers_set
 			response_headers[':status'] = status
-			headers_frame = HeadersFrame(self.connection_settings)
+			headers_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
 			flags = {
 				'end_stream': '0',
 				'end_headers': '1',
@@ -108,7 +110,6 @@ class WSGIServer(object):
 			
 			data_frame = DataFrame()
 			data_bits = data_frame.write(flags={'end_stream': '1', 'padded': '0'}, response_body=response)
-			# response_bits = bitstring.pack("bits, bits", header_bits, data_bits)
 			try:
 				self.client_connection.sendall(data_bits.bytes)
 			except OSError as e:
