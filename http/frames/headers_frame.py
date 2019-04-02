@@ -47,7 +47,8 @@ class HeadersFrame(Frame):
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
         self.padded = encoded_flags[4] = int(flags["padded"])
         self.priority = encoded_flags[2] = int(flags["priority"])
-        self.header_block_fragment = self.encoder.encode(headers)
+        self.headers = {k.lower(): v for k,v in headers.items()}
+        self.header_block_fragment = self.encoder.encode(self.headers)
         self.frame_length = len(self.header_block_fragment)
         frame_header_format = super(HeadersFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()

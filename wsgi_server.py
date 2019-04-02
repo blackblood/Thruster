@@ -94,7 +94,7 @@ class WSGIServer(object):
 	def finish_response(self, result):
 		try:
 			status, response_headers = self.headers_set
-			response_headers[':status'] = status
+			response_headers[':status'] = status.split(" ")[0]
 			headers_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
 			flags = {
 				'end_stream': '0',

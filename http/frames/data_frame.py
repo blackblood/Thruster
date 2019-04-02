@@ -21,7 +21,6 @@ class DataFrame(Frame):
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
         bin_encoded_body = bytearray(response_body, "utf-8")
         self.frame_length = len(bin_encoded_body)
-        import ipdb; ipdb.set_trace()
         # bin_encoded_body = ""
         # for char in list(response_body):
         #     bin_encoded_body += bin(ord(char))
