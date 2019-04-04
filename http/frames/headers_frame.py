@@ -84,7 +84,6 @@ class HeadersFrame(Frame):
             frame_data.update({"weight": priority_weight})
 
         frame_data.update({"header_block_fragment": self.header_block_fragment})
-        import ipdb; ipdb.set_trace()
         return bitstring.pack(frame_format, **frame_data)
     
     def _frame_body_packing_format(self):

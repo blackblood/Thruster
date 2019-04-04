@@ -4,9 +4,9 @@ class AbstractFrame(object):
     __metaclass__ = ABCMeta
     
     @abstractmethod
-    def read():
+    def read(self):
         pass
     
     @abstractmethod
-    def write():
+    def write(self):
         pass

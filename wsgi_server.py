@@ -52,13 +52,13 @@ class WSGIServer(object):
 			raw_data = raw_data.replace("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n", "")
 			if not raw_data:
 				bits = {}
-				self.connection_settings = SettingsFrame(bits)
+				self.connection_settings = SettingsFrame().read(raw_data)
 				return self.connection_settings
 			bits = bitstring.ConstBitStream(hex=binascii.hexlify(raw_data))
 			frame_length = bits.read("uint:24")
 			frame_type = bits.read("hex:8")
 			if frame_type == '04':
-				self.connection_settings = SettingsFrame(bits)
+				self.connection_settings = SettingsFrame().read(bits)
 				return self.connection_settings
 			if frame_type == '01':
 				header_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)

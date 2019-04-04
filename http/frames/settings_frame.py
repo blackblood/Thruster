@@ -10,7 +10,10 @@ class SettingsFrame(Frame):
 	SETTINGS_MAX_FRAME_SIZE=5
 	SETTINGS_MAX_HEADER_LIST_SIZE=6
 
-	def __init__(self, raw_data):
+	def __init__(self):
+		self.values = {}
+
+	def read(self, raw_data):
 		if raw_data:
 			super(SettingsFrame, self).read(raw_data)
 			self.values = {}
@@ -35,8 +38,15 @@ class SettingsFrame(Frame):
 				else:
 					raise ValueError("Unknown Settings Identifier.")
 	
+	def write(self, flags={}):
+		encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
+		self.ack = encoded_flags[0] = int(flags["ack"])
+		frame_format = super(SettingsFrame, self).frame_header_packing_format()
+		frame_data = super(SettingsFrame, self).write(SettingsFrame.FRAME_TYPE, 0, encoded_flags, 0)
+		return bitstring.pack(frame_format, **frame_data)
+
 	@staticmethod
 	def get_acknowledgement_frame():
-		format = "uint:24=frame_length, hex:8=frame_type, bin:8=flags, bin:1=reserved_bit, uint:31=stream_id"
-		data = {'frame_type': SettingsFrame.FRAME_TYPE, 'reserved_bit': '1', 'frame_length': 0, 'flags': '00000001', 'stream_id': 0}
-		return bitstring.pack(format, **data)
+		return SettingsFrame.write(flags={'ack': '1'})
+	
+	
