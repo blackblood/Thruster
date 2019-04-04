@@ -5,8 +5,6 @@ import datetime
 import time
 import traceback
 import bitstring
-import struct
-import binascii
 
 from hpack import Encoder, Decoder
 from http.frames.settings_frame import SettingsFrame
@@ -54,7 +52,7 @@ class WSGIServer(object):
 				bits = {}
 				self.connection_settings = SettingsFrame().read(raw_data)
 				return self.connection_settings
-			bits = bitstring.ConstBitStream(hex=binascii.hexlify(raw_data))
+			bits = bitstring.ConstBitStream(bytes=raw_data)
 			frame_length = bits.read("uint:24")
 			frame_type = bits.read("hex:8")
 			if frame_type == '04':
