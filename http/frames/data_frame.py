@@ -8,7 +8,9 @@ class DataFrame(Frame):
     FRAME_TYPE='0x00'
 
     def __init__(self):
-        pass
+        self.end_stream = None
+        self.padded = None
+        self.response_body = None
     
     def read(self):
         pass
@@ -20,19 +22,13 @@ class DataFrame(Frame):
         frame_header_format = super(DataFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
         bin_encoded_body = bytearray(response_body, "utf-8")
-        self.frame_length = len(bin_encoded_body)
-        # bin_encoded_body = ""
-        # for char in list(response_body):
-        #     bin_encoded_body += bin(ord(char))
-        #     self.frame_length += 1
-        
-        frame_data = {
-            'frame_type': DataFrame.FRAME_TYPE,
-            'reserved_bit': '1',
-            'frame_length': self.frame_length,
-            'flags': "".join(map(lambda x: str(x), encoded_flags)),
-            'stream_id': 1
-        }
+
+        frame_data = super(DataFrame, self).write(
+            DataFrame.FRAME_TYPE,
+            len(bin_encoded_body) + self._frame_metadata_length(),
+            encoded_flags,
+            1
+        )
 
         if self.padded:
             frame_data.update({'padding_length': 0})
@@ -43,6 +39,8 @@ class DataFrame(Frame):
         frame_body_format = ""
         if self.padded:
             frame_body_format += "uint:8=padding_length"
-            self.frame_length += 1
         frame_body_format += "bytes=response_payload"
         return frame_body_format
+    
+    def _frame_metadata_length(self):
+        return 1 if self.padded else 0
