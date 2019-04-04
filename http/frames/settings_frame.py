@@ -12,7 +12,7 @@ class SettingsFrame(Frame):
 
 	def __init__(self, raw_data):
 		if raw_data:
-			Frame.__init__(self, raw_data)
+			super(SettingsFrame, self).read(raw_data)
 			self.values = {}
 			identifier_length = 16
 			value_length = 32

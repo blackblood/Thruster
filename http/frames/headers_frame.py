@@ -8,12 +8,23 @@ class HeadersFrame(Frame):
     FRAME_TYPE='0x01'
 
     def __init__(self, connection_settings, encoder, decoder):
+        super(HeadersFrame, self).__init__()
         self.connection_settings = connection_settings
         self.encoder = encoder
         self.decoder = decoder
+        self.end_stream = None
+        self.end_headers = None
+        self.padded = None
+        self.priority = None
+        self.padding_length = 0
+        self.exclusive = None
+        self.stream_dependency = None
+        self.priority_weight = None
+        self.headers = {}
+        self.header_block_fragment = None
 
     def read(self, raw_data, padding_length=0, exclusive=False, stream_id='0x0'):
-        Frame.__init__(self, raw_data)
+        super(HeadersFrame, self).read(raw_data)
         self.end_stream = self.frame_flags[7]
         self.end_headers = self.frame_flags[5]
         self.padded = int(self.frame_flags[4])
@@ -41,25 +52,29 @@ class HeadersFrame(Frame):
     def get_path(self):
         return self.headers[":path"]
     
+    @staticmethod
+    def normalize_header_fields(headers):
+        return {k.lower(): v for k,v in headers.items()}
+    
     def write(self, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
         self.padded = encoded_flags[4] = int(flags["padded"])
+        if self.padded and padding_length <= 0:
+            raise ValueError("if padded flag is set, padding_length cannot be 0.")
         self.priority = encoded_flags[2] = int(flags["priority"])
-        self.headers = {k.lower(): v for k,v in headers.items()}
+        self.headers = HeadersFrame.normalize_header_fields(headers)
         self.header_block_fragment = self.encoder.encode(self.headers)
-        self.frame_length = len(self.header_block_fragment)
         frame_header_format = super(HeadersFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
-
-        frame_data = {
-            'frame_type': HeadersFrame.FRAME_TYPE,
-            'reserved_bit': '1',
-            'frame_length': self.frame_length,
-            'flags': "".join(map(lambda x: str(x), encoded_flags)),
-            'stream_id': 1,
-        }
+        frame_data = super(HeadersFrame, self).write(
+            HeadersFrame.FRAME_TYPE,
+            len(self.header_block_fragment) + self._frame_metadata_length(),
+            encoded_flags,
+            1
+        )
+        
         if self.padded:
             frame_data.update({"padding_length": 0})
         
@@ -69,20 +84,26 @@ class HeadersFrame(Frame):
             frame_data.update({"weight": priority_weight})
 
         frame_data.update({"header_block_fragment": self.header_block_fragment})
-        
+        import ipdb; ipdb.set_trace()
         return bitstring.pack(frame_format, **frame_data)
     
     def _frame_body_packing_format(self):
         frame_body_format = ""
         if self.padded:
             frame_body_format += "uint:8=padding_length,"
-            self.frame_length += 1
         
         if self.priority:
             frame_body_format += "bin:1=exclusive,"
             frame_body_format += "uint:31=stream_dependency,"
             frame_body_format += "uint:8=weight,"
-            self.frame_length += 5 
         frame_body_format += "bytes=header_block_fragment"
 
         return frame_body_format
+    
+    def _frame_metadata_length(self):
+        length = 0
+        if self.padded:
+            length += 1
+        if self.priority:
+            length += 5
+        return length
