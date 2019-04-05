@@ -34,7 +34,7 @@ class WSGIServer(object):
 				self.request_data = self.client_connection.recv(4096)
 				self.frame = self.parse_request(self.request_data)
 				if self.frame.__class__ == SettingsFrame:
-					sent_data = self.client_connection.sendall(self.frame.get_acknowledgement_frame().bytes)
+					sent_data = self.client_connection.sendall(SettingsFrame.get_acknowledgement_frame().bytes)
 				elif self.frame.__class__ == HeadersFrame:
 					env = self.set_env()
 					result = self.application(env, self.start_response)
