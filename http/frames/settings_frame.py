@@ -11,12 +11,12 @@ class SettingsFrame(Frame):
 	SETTINGS_MAX_HEADER_LIST_SIZE=6
 
 	def __init__(self):
-		self.header_table_size = None
-		self.enable_push = None
+		self.header_table_size = 65536
+		self.enable_push = True
 		self.initial_window_size = None
-		self.max_frame_size = None
+		self.max_frame_size = 2**14
 		self.max_concurrent_streams = None
-		self.max_header_list_size = None
+		self.max_header_list_size = 65536
 
 	def read(self, raw_data):
 		if raw_data:
@@ -28,22 +28,16 @@ class SettingsFrame(Frame):
 				settings_value = raw_data.read("uint:%d" % value_length)
 
 				if settings_identifier == self.SETTINGS_HEADER_TABLE_SIZE:
-					# self.values["SETTINGS_HEADER_TABLE_SIZE"] = settings_value
 					self.header_table_size = settings_value
 				elif settings_identifier == self.SETTINGS_ENABLE_PUSH:
-					# self.values["SETTINGS_ENABLE_PUSH"] = settings_value
 					self.enable_push = settings_value
 				elif settings_identifier == self.SETTINGS_MAX_CONCURRENT_STREAMS:
-					# self.values["SETTINGS_MAX_CONCURRENT_STREAMS"] = settings_value
 					self.max_concurrent_streams = settings_value
 				elif settings_identifier == self.SETTINGS_INITIAL_WINDOW_SIZE:
-					# self.values["SETTINGS_INITIAL_WINDOW_SIZE"] = settings_value
 					self.initial_window_size = settings_value
 				elif settings_identifier == self.SETTINGS_MAX_FRAME_SIZE:
-					# self.values["SETTINGS_MAX_FRAME_SIZE"] = settings_value
 					self.max_frame_size = settings_value
 				elif settings_identifier == self.SETTINGS_MAX_HEADER_LIST_SIZE:
-					# self.values["SETTINGS_MAX_HEADER_LIST_SIZE"] = settings_value
 					self.max_header_list_size = settings_value
 				else:
 					raise ValueError("Unknown Settings Identifier.")

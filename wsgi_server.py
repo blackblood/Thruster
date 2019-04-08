@@ -9,6 +9,7 @@ import bitstring
 from hpack import Encoder, Decoder
 from http.frames.settings_frame import SettingsFrame
 from http.frames.headers_frame import HeadersFrame
+from http.frames.continuation_frame import ContinuationFrame
 from http.frames.data_frame import DataFrame
 
 class WSGIServer(object):
@@ -100,16 +101,38 @@ class WSGIServer(object):
 				'padded': '0',
 				'priority': '1'
 			}
-			header_bits = headers_frame.write(flags=flags, headers=response_headers)
-			self.client_connection.sendall(header_bits.bytes)
+			encoded_headers = self.header_encoder.encode(response_headers)
+			if len(encoded_headers) > self.connection_settings.max_frame_size:
+				flags['end_headers'] = '0'
+				self.client_connection.sendall(
+					headers_frame.write(
+						flags=flags,
+						headers_block_fragment=encoded_headers[:self.connection_settings.max_frame_size]
+					).bytes
+				)
+
+				last_index = len(encoded_headers) / self.connection_settings.max_frame_size
+				if len(encoded_headers) % self.connection_settings.max_frame_size > 0:
+					last_index += 1
+				else:
+					last_index -= 1
+
+				for index, chunk in enumerate(headers_frame.get_block_fragment_chunks()):
+					self.client_connection.sendall(
+						ContinuationFrame().write(
+							flags={'end_headers': '1' if index == last_index else '0'},
+							headers_block_fragment=chunk
+						).bytes
+					)
+			else:
+				self.client_connection.sendall(headers_frame.write(flags=flags, headers=response_headers).bytes)
 			response = ""
 			for data in result:
 				response += data
 			
 			data_frame = DataFrame()
-			data_bits = data_frame.write(flags={'end_stream': '1', 'padded': '0'}, response_body=response)
 			try:
-				self.client_connection.sendall(data_bits.bytes)
+				self.client_connection.sendall(data_frame.write(flags={'end_stream': '1', 'padded': '0'}, response_body=response).bytes)
 			except OSError as e:
 				print(e)
 		except Exception as exp:

@@ -56,7 +56,7 @@ class HeadersFrame(Frame):
     def normalize_header_fields(headers):
         return {k.lower(): v for k,v in headers.items()}
     
-    def write(self, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}):
+    def write(self, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}, headers_block_fragment=None):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
@@ -64,8 +64,17 @@ class HeadersFrame(Frame):
         if self.padded and padding_length <= 0:
             raise ValueError("if padded flag is set, padding_length cannot be 0.")
         self.priority = encoded_flags[2] = int(flags["priority"])
-        self.headers = HeadersFrame.normalize_header_fields(headers)
-        self.header_block_fragment = self.encoder.encode(self.headers)
+
+        if headers and headers_block_fragment:
+            raise ValueError("Pass only one of headers or header_block_fragment")
+        if headers:
+            self.headers = HeadersFrame.normalize_header_fields(headers)
+            self.header_block_fragment = self.encoder.encode(self.headers)
+        elif headers_block_fragment:
+            self.header_block_fragment = headers_block_fragment
+        else:
+            raise ValueError("Pass headers or header_block_fragment")
+
         frame_header_format = super(HeadersFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
         frame_data = super(HeadersFrame, self).write(
@@ -85,6 +94,14 @@ class HeadersFrame(Frame):
 
         frame_data.update({"header_block_fragment": self.header_block_fragment})
         return bitstring.pack(frame_format, **frame_data)
+    
+    def get_block_fragment_chunks(self):
+        chunk_start = 0
+        chunk_end = self.connection_settings.max_frame_size
+        while chunk_end < len(self.header_block_fragment) + self.connection_settings.max_frame_size:
+            yield self.header_block_fragment[chunk_start:chunk_end]
+            chunk_start += self.connection_settings.max_frame_size
+            chunk_end += self.connection_settings.max_frame_size
     
     def _frame_body_packing_format(self):
         frame_body_format = ""
