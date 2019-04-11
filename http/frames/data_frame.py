@@ -1,5 +1,4 @@
 import sys
-import binascii
 import bitstring
 
 from frame import Frame
@@ -7,10 +6,11 @@ from frame import Frame
 class DataFrame(Frame):
     FRAME_TYPE='0x00'
 
-    def __init__(self):
+    def __init__(self, settings):
+        self.connection_settings = settings
         self.end_stream = None
         self.padded = None
-        self.response_body = None
+        self.response_body = ""
     
     def read(self):
         pass
@@ -19,20 +19,20 @@ class DataFrame(Frame):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.padded = encoded_flags[4] = int(flags["padded"])
+        self.response_body = response_body
         frame_header_format = super(DataFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
-        bin_encoded_body = bytearray(response_body, "utf-8")
 
         frame_data = super(DataFrame, self).write(
             DataFrame.FRAME_TYPE,
-            len(bin_encoded_body) + self._frame_metadata_length(),
+            len(response_body) + self._frame_metadata_length(),
             encoded_flags,
             1
         )
 
         if self.padded:
             frame_data.update({'padding_length': 0})
-        frame_data.update({'response_payload': bin_encoded_body})
+        frame_data.update({'response_payload': response_body})
         return bitstring.pack(frame_format, **frame_data)
 
     def _frame_body_packing_format(self):

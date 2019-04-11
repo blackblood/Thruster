@@ -5,12 +5,14 @@ import datetime
 import time
 import traceback
 import bitstring
+import ipdb
 
 from hpack import Encoder, Decoder
 from http.frames.settings_frame import SettingsFrame
 from http.frames.headers_frame import HeadersFrame
 from http.frames.continuation_frame import ContinuationFrame
 from http.frames.data_frame import DataFrame
+from http.frames import utils
 
 class WSGIServer(object):
 	address_family = socket.AF_INET
@@ -95,44 +97,48 @@ class WSGIServer(object):
 			status, response_headers = self.headers_set
 			response_headers[':status'] = status.split(" ")[0]
 			headers_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
-			flags = {
-				'end_stream': '0',
-				'end_headers': '1',
-				'padded': '0',
-				'priority': '1'
-			}
 			encoded_headers = self.header_encoder.encode(response_headers)
+
 			if len(encoded_headers) > self.connection_settings.max_frame_size:
-				flags['end_headers'] = '0'
 				self.client_connection.sendall(
 					headers_frame.write(
-						flags=flags,
-						headers_block_fragment=encoded_headers[:self.connection_settings.max_frame_size]
+						flags={
+							'end_stream': '0', 'end_headers': '0', 'padded': '0', 'priority': '1'
+						},
+						headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
 					).bytes
 				)
-
-				last_index = len(encoded_headers) / self.connection_settings.max_frame_size
-				if len(encoded_headers) % self.connection_settings.max_frame_size > 0:
-					last_index += 1
-				else:
-					last_index -= 1
-
-				for index, chunk in enumerate(headers_frame.get_block_fragment_chunks()):
+				for chunk, is_last in utils.get_chunks(encoded_headers, self.connection_settings.max_frame_size):
 					self.client_connection.sendall(
 						ContinuationFrame().write(
-							flags={'end_headers': '1' if index == last_index else '0'},
+							flags={'end_headers': '1' if is_last else '0'},
 							headers_block_fragment=chunk
 						).bytes
 					)
 			else:
-				self.client_connection.sendall(headers_frame.write(flags=flags, headers=response_headers).bytes)
+				self.client_connection.sendall(
+					headers_frame.write(
+						flags={
+							'end_stream': '0', 'end_headers': '1', 'padded': '0', 'priority': '1'
+						},
+						headers=response_headers
+						# headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
+					).bytes
+				)
+			
 			response = ""
 			for data in result:
 				response += data
 			
-			data_frame = DataFrame()
+			data_frame = DataFrame(self.connection_settings)
 			try:
-				self.client_connection.sendall(data_frame.write(flags={'end_stream': '1', 'padded': '0'}, response_body=response).bytes)
+				for chunk, is_last in utils.get_chunks(bytearray(response, "utf-8"), self.connection_settings.max_frame_size):
+					self.client_connection.sendall(
+						data_frame.write(
+							flags={'end_stream': '1' if is_last else '0', 'padded': '0'},
+							response_body=chunk
+						).bytes
+					)
 			except OSError as e:
 				print(e)
 		except Exception as exp:

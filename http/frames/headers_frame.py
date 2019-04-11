@@ -1,6 +1,5 @@
 import sys
 import bitstring
-import binascii
 from frame import Frame
 from hpack import Encoder, Decoder
 
@@ -94,14 +93,6 @@ class HeadersFrame(Frame):
 
         frame_data.update({"header_block_fragment": self.header_block_fragment})
         return bitstring.pack(frame_format, **frame_data)
-    
-    def get_block_fragment_chunks(self):
-        chunk_start = 0
-        chunk_end = self.connection_settings.max_frame_size
-        while chunk_end < len(self.header_block_fragment) + self.connection_settings.max_frame_size:
-            yield self.header_block_fragment[chunk_start:chunk_end]
-            chunk_start += self.connection_settings.max_frame_size
-            chunk_end += self.connection_settings.max_frame_size
     
     def _frame_body_packing_format(self):
         frame_body_format = ""
