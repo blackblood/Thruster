@@ -63,7 +63,6 @@ class HeadersFrame(Frame):
         if self.padded and padding_length <= 0:
             raise ValueError("if padded flag is set, padding_length cannot be 0.")
         self.priority = encoded_flags[2] = int(flags["priority"])
-
         if headers and headers_block_fragment:
             raise ValueError("Pass only one of headers or header_block_fragment")
         if headers:

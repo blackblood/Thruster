@@ -97,7 +97,7 @@ class WSGIServer(object):
 			status, response_headers = self.headers_set
 			response_headers[':status'] = status.split(" ")[0]
 			headers_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
-			encoded_headers = self.header_encoder.encode(response_headers)
+			encoded_headers = self.header_encoder.encode(HeadersFrame.normalize_header_fields(response_headers))
 
 			if len(encoded_headers) > self.connection_settings.max_frame_size:
 				self.client_connection.sendall(
@@ -121,8 +121,7 @@ class WSGIServer(object):
 						flags={
 							'end_stream': '0', 'end_headers': '1', 'padded': '0', 'priority': '1'
 						},
-						headers=response_headers
-						# headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
+						headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
 					).bytes
 				)
 			
