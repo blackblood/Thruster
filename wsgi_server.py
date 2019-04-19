@@ -12,6 +12,7 @@ from http.frames.settings_frame import SettingsFrame
 from http.frames.headers_frame import HeadersFrame
 from http.frames.continuation_frame import ContinuationFrame
 from http.frames.data_frame import DataFrame
+from http.frames.rst_frame import RstStreamFrame
 from http.frames import utils
 
 class WSGIServer(object):
@@ -42,6 +43,8 @@ class WSGIServer(object):
 					env = self.set_env()
 					result = self.application(env, self.start_response)
 					self.finish_response(result)
+				elif self.frame.__class__ == RstStreamFrame:
+					raise ValueError("RSTFrame received with error: (%d, %s)" % (self.frame.error_code, self.frame.description))
 				else:
 					pass
 		except Exception:
@@ -61,10 +64,14 @@ class WSGIServer(object):
 			if frame_type == '04':
 				self.connection_settings = SettingsFrame().read(bits)
 				return self.connection_settings
-			if frame_type == '01':
+			elif frame_type == '01':
 				header_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
 				header_frame.read(bits)
 				return header_frame
+			elif frame_type == '03':
+				rst_frame = RstStreamFrame()
+				rst_frame.read(bits)
+				return rst_frame
 
 	def set_env(self):
 		env = {}

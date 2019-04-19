@@ -11,7 +11,6 @@ def get_chunks(data, chunk_size):
 
     counter = 0
     while chunk_end < len(data) + chunk_size:
-        print("chunk_end: %d" % chunk_end)
         yield data[chunk_start:chunk_end], counter == last_index
         chunk_start += chunk_size
         chunk_end += chunk_size
