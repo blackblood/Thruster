@@ -37,8 +37,8 @@ class MasterWorker():
 	
 	def create_worker_pool(self):
 		sys.path.insert(0, 'mysite')
-		module = __import__('mysite', globals(), locals(), ['wsgi'], 0)
-		self.application = module.wsgi.application
+		module = __import__('mysite', globals(), locals(), ['asgi'], 0)
+		self.application = module.asgi.application
 		signal.signal(signal.SIGINT, self.shutdown_workers)
 		signal.signal(signal.SIGCHLD, self.restart_worker)
 		for _ in range(5):
