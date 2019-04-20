@@ -1,4 +1,4 @@
-from frame import Frame
+from .frame import Frame
 import bitstring
 
 class SettingsFrame(Frame):

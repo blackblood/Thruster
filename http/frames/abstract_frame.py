@@ -1,8 +1,6 @@
 from abc import ABCMeta, abstractmethod
 
-class AbstractFrame(object):
-    __metaclass__ = ABCMeta
-    
+class AbstractFrame(object, metaclass=ABCMeta):
     @abstractmethod
     def read(self):
         pass

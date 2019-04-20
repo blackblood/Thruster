@@ -1,5 +1,5 @@
 import socket
-import StringIO
+import io
 import sys
 import datetime
 import time
@@ -49,7 +49,7 @@ class WSGIServer(object):
 					pass
 		except Exception:
 			print("Error occurred in handle_request")
-			print(traceback.format_exc())
+			print((traceback.format_exc()))
 	
 	def parse_request(self, raw_data):
 		if raw_data:
@@ -78,7 +78,7 @@ class WSGIServer(object):
 
 		env['wsgi.version'] = (1,0)
 		env['wsgi.url_scheme'] = 'https'
-		env['wsgi.input'] = StringIO.StringIO(self.request_data)
+		env['wsgi.input'] = io.StringIO(self.request_data)
 		env['wsgi.errors'] = sys.stderr
 		env['wsgi.multithread'] = False
 		env['wsgi.multiprocess'] = False
@@ -148,6 +148,6 @@ class WSGIServer(object):
 			except OSError as e:
 				print(e)
 		except Exception as exp:
-			print(traceback.format_exc())
+			print((traceback.format_exc()))
 			print(exp)
 			print("Exception raised in finish response")

@@ -1,5 +1,5 @@
 from bitstring import ConstBitStream, BitStream
-from abstract_frame import AbstractFrame
+from .abstract_frame import AbstractFrame
 
 class Frame(AbstractFrame):
 	def __init__(self):
@@ -22,7 +22,7 @@ class Frame(AbstractFrame):
 		self.stream_id = raw_data.read("uint:31")
 	
 	def write(self, frame_type, frame_length, encoded_flags, stream_id):
-		self.encoded_flags = "".join(map(lambda x: str(x), encoded_flags))
+		self.encoded_flags = "".join([str(x) for x in encoded_flags])
 		self.frame_type = frame_type
 		self.frame_length = frame_length
 		self.reserved_bit = 1

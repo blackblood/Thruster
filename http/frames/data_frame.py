@@ -1,7 +1,7 @@
 import sys
 import bitstring
 
-from frame import Frame
+from .frame import Frame
 
 class DataFrame(Frame):
     FRAME_TYPE='0x00'

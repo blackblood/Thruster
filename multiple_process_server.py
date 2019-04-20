@@ -31,11 +31,11 @@ class MasterWorker():
 		self.listen_socket.bind(SERVER_ADDRESS)
 		self.listen_socket.listen(REQUEST_QUEUE_SIZE)
 		self.pid = os.getpid()
-		print('Serving HTTP on port {port} ...'.format(port=PORT))
-		print('Parent PID (PPID): {pid}\n'.format(pid=os.getpid()))
+		print(('Serving HTTP on port {port} ...'.format(port=PORT)))
+		print(('Parent PID (PPID): {pid}\n'.format(pid=os.getpid())))
   
 	def shutdown_workers(self, signum, frame):
-		print("shutting down pid: %d" % os.getpid())
+		print(("shutting down pid: %d" % os.getpid()))
 		os._exit(0)
 	
 	def create_worker_pool(self):
@@ -66,14 +66,14 @@ class MasterWorker():
 				try:
 					client_connection, client_address = self.listen_socket.accept()
 					worker.client_connection = self.context.wrap_socket(client_connection, server_side=True)
-					print("selected alpn protocol: %s" % worker.client_connection.selected_alpn_protocol())
-					print("handled by pid: %d" % os.getpid())
+					print(("selected alpn protocol: %s" % worker.client_connection.selected_alpn_protocol()))
+					print(("handled by pid: %d" % os.getpid()))
 					worker.handle_request()
 				except Exception:
-					print(traceback.format_exc())
+					print((traceback.format_exc()))
 			os._exit(0)
 		else:
-			print("Created worker with pid: %d" % pid)
+			print(("Created worker with pid: %d" % pid))
 			return pid
 
 	def restart_worker(self, signum, frame):

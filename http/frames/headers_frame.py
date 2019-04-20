@@ -1,6 +1,6 @@
 import sys
 import bitstring
-from frame import Frame
+from .frame import Frame
 from hpack import Encoder, Decoder
 
 class HeadersFrame(Frame):
@@ -53,7 +53,7 @@ class HeadersFrame(Frame):
     
     @staticmethod
     def normalize_header_fields(headers):
-        return {k.lower(): v for k,v in headers.items()}
+        return {k.lower(): v for k,v in list(headers.items())}
     
     def write(self, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}, headers_block_fragment=None):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
