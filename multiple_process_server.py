@@ -8,9 +8,6 @@ import sys
 from wsgi_server import WSGIServer as Worker
 from datetime import datetime
 from http_utils.base import get_http_status_text, get_ext_from_mime_type, get_mime_type_from_ext
-from http.request import Request
-from http.response import Response
-from http.content_negotiator import ContentNegotiator
 from pysigset import suspended_signals
 
 SERVER_ADDRESS = (HOST, PORT) = '127.0.0.1', 8888
@@ -39,8 +36,8 @@ class MasterWorker():
 		os._exit(0)
 	
 	def create_worker_pool(self):
-		# sys.path.insert(0, 'mysite/mysite')
-		module = __import__('mysite.mysite', globals(), locals(), ['wsgi'], 0)
+		sys.path.insert(0, 'mysite')
+		module = __import__('mysite', globals(), locals(), ['wsgi'], 0)
 		self.application = module.wsgi.application
 		signal.signal(signal.SIGINT, self.shutdown_workers)
 		signal.signal(signal.SIGCHLD, self.restart_worker)

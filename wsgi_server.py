@@ -7,12 +7,12 @@ import traceback
 import bitstring
 
 from hpack import Encoder, Decoder
-from http.frames.settings_frame import SettingsFrame
-from http.frames.headers_frame import HeadersFrame
-from http.frames.continuation_frame import ContinuationFrame
-from http.frames.data_frame import DataFrame
-from http.frames.rst_frame import RstStreamFrame
-from http.frames import utils
+from http2.frames.settings_frame import SettingsFrame
+from http2.frames.headers_frame import HeadersFrame
+from http2.frames.continuation_frame import ContinuationFrame
+from http2.frames.data_frame import DataFrame
+from http2.frames.rst_frame import RstStreamFrame
+from http2.frames import utils
 
 class WSGIServer(object):
 	address_family = socket.AF_INET
@@ -27,6 +27,7 @@ class WSGIServer(object):
 		self.header_decoder = Decoder()
 		self.request_data = ""
 		self.headers_set = []
+		self.connection_established = False
 
 	def set_app(self, application):
 		self.application = application
@@ -37,7 +38,8 @@ class WSGIServer(object):
 				self.request_data = self.client_connection.recv(4096)
 				self.frame = self.parse_request(self.request_data)
 				if self.frame.__class__ == SettingsFrame:
-					sent_data = self.client_connection.sendall(SettingsFrame.get_acknowledgement_frame().bytes)
+					self.client_connection.sendall(SettingsFrame.get_acknowledgement_frame().bytes)
+					self.connection_established = True
 				elif self.frame.__class__ == HeadersFrame:
 					env = self.set_env()
 					result = self.application(env, self.start_response)
@@ -52,7 +54,8 @@ class WSGIServer(object):
 	
 	def parse_request(self, raw_data):
 		if raw_data:
-			raw_data = raw_data.replace("PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n", "")
+			if not self.connection_established:
+				raw_data = raw_data[24:]
 			if not raw_data:
 				bits = {}
 				self.connection_settings = SettingsFrame().read(raw_data)
@@ -60,6 +63,7 @@ class WSGIServer(object):
 			bits = bitstring.ConstBitStream(bytes=raw_data)
 			frame_length = bits.read("uint:24")
 			frame_type = bits.read("hex:8")
+			import ipdb; ipdb.set_trace()
 			if frame_type == '04':
 				self.connection_settings = SettingsFrame().read(bits)
 				return self.connection_settings

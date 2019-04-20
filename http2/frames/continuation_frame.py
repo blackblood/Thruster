@@ -1,4 +1,4 @@
-from http.frames.frame import Frame
+from http2.frames.frame import Frame
 import bitstring
 
 class ContinuationFrame(Frame):
