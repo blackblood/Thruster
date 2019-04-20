@@ -39,8 +39,8 @@ class MasterWorker():
 		os._exit(0)
 	
 	def create_worker_pool(self):
-		sys.path.insert(0, 'micro_blog')
-		module = __import__('micro_blog', globals(), locals(), ['wsgi'], - 1)
+		# sys.path.insert(0, 'mysite/mysite')
+		module = __import__('mysite.mysite', globals(), locals(), ['wsgi'], 0)
 		self.application = module.wsgi.application
 		signal.signal(signal.SIGINT, self.shutdown_workers)
 		signal.signal(signal.SIGCHLD, self.restart_worker)

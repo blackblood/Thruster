@@ -5,7 +5,6 @@ import datetime
 import time
 import traceback
 import bitstring
-import ipdb
 
 from hpack import Encoder, Decoder
 from http.frames.settings_frame import SettingsFrame
