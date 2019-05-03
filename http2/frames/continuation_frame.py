@@ -4,11 +4,19 @@ import bitstring
 class ContinuationFrame(Frame):
     FRAME_TYPE="0x09"
 
-    def __init__(self):
+    def __init__(self, encoder, decoder):
         self.header_block_fragment = None
+        self.headers = {}
+        self.end_headers = None
+        self.encoder = encoder
+        self.decoder = decoder
     
-    def read(self):
-        pass
+    def read(self, raw_data):
+        super(ContinuationFrame, self).read(raw_data)
+        self.end_headers = self.frame_flags[5]
+        self.header_block_fragment = self.decoder.decode(raw_data.read(self.frame_length).bytes)
+        for header_field in self.header_block_fragment:
+            self.headers[header_field[0]] = header_field[1]
     
     def write(self, header_block_fragment=None, flags={}):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")

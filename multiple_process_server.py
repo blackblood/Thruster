@@ -3,6 +3,7 @@ import ssl
 import socket
 import signal
 import traceback
+import asyncio
 import sys
 
 from wsgi_server import WSGIServer as Worker
@@ -20,10 +21,10 @@ class MasterWorker():
 		self.server_port = PORT
 		self.listen_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.listen_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		# self.listen_socket.setblocking(False)
 		ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
 		ssl_context.load_cert_chain(certfile='certificate.pem', keyfile='key.pem')
 		ssl_context.set_alpn_protocols(['h2', 'spdy/2', 'http/1.1'])
-		# ssl_context.check_hostname = False
 		self.context = ssl_context
 		self.listen_socket.bind(SERVER_ADDRESS)
 		self.listen_socket.listen(REQUEST_QUEUE_SIZE)
@@ -59,6 +60,7 @@ class MasterWorker():
 		if pid == 0:
 			worker = Worker(self.server_name, self.server_port)
 			worker.set_app(self.application)
+			worker.event_loop = asyncio.get_event_loop()
 			while True:
 				try:
 					client_connection, client_address = self.listen_socket.accept()

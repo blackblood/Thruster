@@ -10,29 +10,36 @@ class DataFrame(Frame):
         self.connection_settings = settings
         self.end_stream = None
         self.padded = None
-        self.response_body = ""
+        self.body = ""
     
-    def read(self):
-        pass
+    def read(self, raw_data):
+        super(DataFrame, self).read(raw_data)
+        self.end_stream = self.encoded_flags[7]
+        self.padded = self.encoded_flags[4]
+        if self.padded:
+            self.padding_length = raw_data.read("uint:8")
+            self.body = raw_data.read(self.frame_length - 1 - self.padding_length).bytes
+        else:
+            self.body = raw_data.read(self.frame_length - 1).bytes
     
-    def write(self, flags={}, padding_length=0, response_body=""):
+    def write(self, flags={}, padding_length=0, body=""):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.padded = encoded_flags[4] = int(flags["padded"])
-        self.response_body = response_body
+        self.body = body
         frame_header_format = super(DataFrame, self).frame_header_packing_format()
         frame_format = frame_header_format + "," + self._frame_body_packing_format()
 
         frame_data = super(DataFrame, self).write(
             DataFrame.FRAME_TYPE,
-            len(response_body) + self._frame_metadata_length(),
+            len(self.body) + self._frame_metadata_length(),
             encoded_flags,
             1
         )
 
         if self.padded:
             frame_data.update({'padding_length': 0})
-        frame_data.update({'response_payload': response_body})
+        frame_data.update({'response_payload': self.body})
         return bitstring.pack(frame_format, **frame_data)
 
     def _frame_body_packing_format(self):

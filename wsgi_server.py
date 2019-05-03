@@ -5,6 +5,8 @@ import datetime
 import time
 import traceback
 import bitstring
+import asyncio
+import queue
 
 from hpack import Encoder, Decoder
 from http2.frames.settings_frame import SettingsFrame
@@ -28,23 +30,110 @@ class WSGIServer(object):
 		self.request_data = ""
 		self.headers_set = []
 		self.connection_established = False
+		self.response_queue = queue.Queue()
 
 	def set_app(self, application):
 		self.application = application
+	
+	async def asgi_more_data(self):
+		request_data = self.client_connection.recv(4096)
+		frame = self.parse_request(request_data)
+		if isinstance(frame, DataFrame):
+			asgi_event = {"type": "http.request", "body": frame.body}
+			if frame.end_stream:
+				asgi_event["more_body"] = False
+			else:
+				asgi_event["more_body"] = True
+			
+			return asgi_event
+	
+	async def trigger_asgi_application(self):
+		return { "type": "http.request", "body": b"", "more_body": False }
+	
+	async def send_response(self, event):
+		if event["type"] == "http.response.start":
+			headers_frame = HeadersFrame(self.connection_settings, self.header_encoder, self.header_decoder)
+			response_headers = {}
+			for h in event["headers"]:
+				response_headers[h[0]] = h[1]
+			response_headers[':status'] = event["status"]
+			encoded_headers = self.header_encoder.encode(HeadersFrame.normalize_header_fields(response_headers))
+			
+			if len(encoded_headers) <= self.connection_settings.max_frame_size:
+				self.response_queue.put(
+					headers_frame.write(
+						flags={
+							'end_stream': '0', 'end_headers': '1', 'padded': '0', 'priority': '1'
+						},
+						headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
+					)
+				)	
+			else:
+				self.response_queue.put(
+					headers_frame.write(
+						flags={
+							'end_stream': '0', 'end_headers': '0', 'padded': '0', 'priority': '1'
+						},
+						headers_block_fragment=encoded_headers[0:self.connection_settings.max_frame_size]
+					)
+				)
+			
+				for chunk, is_last in utils.get_chunks(
+					encoded_headers_as_bytes,
+					self.connection_settings.max_frame_size,
+					offset=self.connection_settings.max_frame_size
+				):
+					self.response_queue.put(
+						ContinuationFrame().write(
+							flags={
+								'end_stream': '0', 'end_headers': '1' if is_last else '0', 'padded': '0', 'priority': '1'
+							},
+							headers_block_fragment=chunk
+						)
+					)
+		elif event["type"] == "http.response.body":
+			if event["body"]:
+				data_frame = DataFrame(self.connection_settings)
+				try:
+					for chunk, is_last in utils.get_chunks(event["body"], self.connection_settings.max_frame_size):
+						self.response_queue.put(
+							data_frame.write(
+								flags={'end_stream': '1' if is_last and not event["more_body"] else '0', 'padded': '0'},
+								body=chunk
+							)
+						)
+				except OSError as e:
+					print(e)
+			
+			while not self.response_queue.empty():
+				self.client_connection.sendall(self.response_queue.get().bytes)
+		else:
+			raise ValueError("Unkown event type: %s" % event["type"])
 
 	def handle_request(self):
 		try:
 			while True:
 				self.request_data = self.client_connection.recv(4096)
 				self.frame = self.parse_request(self.request_data)
-				if self.frame.__class__ == SettingsFrame:
+				if isinstance(self.frame, SettingsFrame):
 					self.client_connection.sendall(SettingsFrame.get_acknowledgement_frame().bytes)
 					self.connection_established = True
-				elif self.frame.__class__ == HeadersFrame:
-					env = self.set_env()
-					result = self.application(env, self.start_response)
-					self.finish_response(result)
-				elif self.frame.__class__ == RstStreamFrame:
+				elif isinstance(self.frame, HeadersFrame):
+					if self.frame.end_stream:
+						asgi_scope = self.get_asgi_event_dict(self.frame)
+						self.asgi_app = self.application(asgi_scope)
+						self.event_loop.run_until_complete(self.asgi_app(self.trigger_asgi_application, self.send_response))
+					else:
+						self.asgi_scope = self.get_asgi_event_dict(self.frame)
+				elif isinstance(self.frame, ContinuationFrame):
+					if self.frame.end_stream:
+						self.asgi_app = self.application(self.asgi_scope)
+						self.event_loop.run_until_complete(self.asgi_app(self.trigger_asgi_application, self.send_response))
+					else:
+						self.asgi_scope["headers"].extend([[k,v] for k,v in self.frame.headers.iteritems()])
+				elif isinstance(self.frame, DataFrame):
+					pass
+				elif isinstance(self.frame, RstStreamFrame):
 					raise ValueError("RSTFrame received with error: (%d, %s)" % (self.frame.error_code, self.frame.description))
 				else:
 					pass
@@ -63,7 +152,6 @@ class WSGIServer(object):
 			bits = bitstring.ConstBitStream(bytes=raw_data)
 			frame_length = bits.read("uint:24")
 			frame_type = bits.read("hex:8")
-			import ipdb; ipdb.set_trace()
 			if frame_type == '04':
 				self.connection_settings = SettingsFrame().read(bits)
 				return self.connection_settings
@@ -75,6 +163,14 @@ class WSGIServer(object):
 				rst_frame = RstStreamFrame()
 				rst_frame.read(bits)
 				return rst_frame
+			elif frame_type == '09':
+				cont_frame = ContinuationFrame()
+				cont_frame.read(bits)
+				return cont_frame
+			elif frame_type == '00':
+				data_frame = DataFrame()
+				data_frame.read(bits)
+				return data_frame
 
 	def set_env(self):
 		env = {}
@@ -92,6 +188,22 @@ class WSGIServer(object):
 		env['SERVER_PORT'] = str(self.server_port)
 
 		return env
+	
+	def get_asgi_event_dict(self, frame):
+		event_dict = {
+			"type": "http",
+			"asgi": {
+				"version": "2.0",
+				"spec_version": "2.1"
+			},
+			"http_version": "2",
+			"method": frame.get_method(),
+			"scheme": "https",
+			"path": frame.get_path(),
+			"query_string": "",
+			"headers": [[k.encode("utf-8"),v.encode("utf-8")] for k,v in frame.headers.items()],
+		}
+		return event_dict
 
 	def start_response(self, status, response_headers, exc_info=None):
 		server_headers = {
