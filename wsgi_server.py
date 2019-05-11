@@ -79,7 +79,7 @@ class WSGIServer(object):
 				)
 			
 				for chunk, is_last in utils.get_chunks(
-					encoded_headers_as_bytes,
+					encoded_headers,
 					self.connection_settings.max_frame_size,
 					offset=self.connection_settings.max_frame_size
 				):
@@ -110,7 +110,7 @@ class WSGIServer(object):
 		else:
 			raise ValueError("Unkown event type: %s" % event["type"])
 
-	def handle_request(self):
+	async def handle_request(self):
 		try:
 			while True:
 				self.request_data = self.client_connection.recv(4096)
@@ -122,13 +122,13 @@ class WSGIServer(object):
 					if self.frame.end_stream:
 						asgi_scope = self.get_asgi_event_dict(self.frame)
 						self.asgi_app = self.application(asgi_scope)
-						self.event_loop.run_until_complete(self.asgi_app(self.trigger_asgi_application, self.send_response))
+						await self.asgi_app(self.trigger_asgi_application, self.send_response)
 					else:
 						self.asgi_scope = self.get_asgi_event_dict(self.frame)
 				elif isinstance(self.frame, ContinuationFrame):
 					if self.frame.end_stream:
 						self.asgi_app = self.application(self.asgi_scope)
-						self.event_loop.run_until_complete(self.asgi_app(self.trigger_asgi_application, self.send_response))
+						await self.asgi_app(self.trigger_asgi_application, self.send_response)
 					else:
 						self.asgi_scope["headers"].extend([[k,v] for k,v in self.frame.headers.iteritems()])
 				elif isinstance(self.frame, DataFrame):

@@ -36,14 +36,14 @@ class MasterWorker():
 		print(("shutting down pid: %d" % os.getpid()))
 		os._exit(0)
 	
-	def create_worker_pool(self):
+	async def create_worker_pool(self):
 		sys.path.insert(0, 'mysite')
 		module = __import__('mysite', globals(), locals(), ['asgi'], 0)
 		self.application = module.asgi.application
 		signal.signal(signal.SIGINT, self.shutdown_workers)
 		signal.signal(signal.SIGCHLD, self.restart_worker)
 		for _ in range(5):
-			pid = self.create_worker()
+			await self.create_worker()
 		
 		with suspended_signals(signal.SIGINT):
 			try:
@@ -55,19 +55,18 @@ class MasterWorker():
 		print("Exiting...")
 		print("Bye Bye!")
     
-	def create_worker(self):
+	async def create_worker(self):
 		pid = os.fork()
 		if pid == 0:
 			worker = Worker(self.server_name, self.server_port)
 			worker.set_app(self.application)
-			worker.event_loop = asyncio.get_event_loop()
 			while True:
 				try:
 					client_connection, client_address = self.listen_socket.accept()
 					worker.client_connection = self.context.wrap_socket(client_connection, server_side=True)
 					print(("selected alpn protocol: %s" % worker.client_connection.selected_alpn_protocol()))
 					print(("handled by pid: %d" % os.getpid()))
-					worker.handle_request()
+					await worker.handle_request()
 				except Exception:
 					print((traceback.format_exc()))
 			os._exit(0)
@@ -83,8 +82,9 @@ class MasterWorker():
 			print("signalled")
 
 def serve_forever():
-  	master_worker = MasterWorker()
-  	master_worker.create_worker_pool()
+	master_worker = MasterWorker()
+	event_loop = asyncio.get_event_loop()
+	event_loop.run_until_complete(master_worker.create_worker_pool())
 
 if __name__ == '__main__':
   	serve_forever()
