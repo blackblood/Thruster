@@ -22,7 +22,7 @@ class DataFrame(Frame):
         else:
             self.body = raw_data.read(self.frame_length - 1).bytes
     
-    def write(self, flags={}, padding_length=0, body=""):
+    def write(self, stream_id, flags={}, padding_length=0, body=""):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.padded = encoded_flags[4] = int(flags["padded"])
@@ -34,7 +34,7 @@ class DataFrame(Frame):
             DataFrame.FRAME_TYPE,
             len(self.body) + self._frame_metadata_length(),
             encoded_flags,
-            1
+            stream_id
         )
 
         if self.padded:

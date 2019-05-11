@@ -18,7 +18,7 @@ class ContinuationFrame(Frame):
         for header_field in self.header_block_fragment:
             self.headers[header_field[0]] = header_field[1]
     
-    def write(self, header_block_fragment=None, flags={}):
+    def write(self, stream_id, header_block_fragment=None, flags={}):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_headers = encoded_flags[6] = flags['end_headers']
         self.header_block_fragment = header_block_fragment
@@ -28,7 +28,7 @@ class ContinuationFrame(Frame):
             ContinuationFrame.FRAME_TYPE,
             len(self.header_block_fragment),
             encoded_flags,
-            1
+            stream_id
         )
         frame_data.update({"header_block_fragment": self.header_block_fragment})
         return bitstring.pack(frame_format, **frame_data)

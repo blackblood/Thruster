@@ -6,9 +6,8 @@ from hpack import Encoder, Decoder
 class HeadersFrame(Frame):
     FRAME_TYPE='0x01'
 
-    def __init__(self, connection_settings, encoder, decoder):
+    def __init__(self, encoder, decoder):
         super(HeadersFrame, self).__init__()
-        self.connection_settings = connection_settings
         self.encoder = encoder
         self.decoder = decoder
         self.end_stream = None
@@ -55,7 +54,7 @@ class HeadersFrame(Frame):
     def normalize_header_fields(headers):
         return {k.lower(): v for k,v in list(headers.items())}
     
-    def write(self, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}, headers_block_fragment=None):
+    def write(self, stream_id, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}, headers_block_fragment=None):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
@@ -79,7 +78,7 @@ class HeadersFrame(Frame):
             HeadersFrame.FRAME_TYPE,
             len(self.header_block_fragment) + self._frame_metadata_length(),
             encoded_flags,
-            1
+            stream_id
         )
         
         if self.padded:
