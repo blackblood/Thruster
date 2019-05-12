@@ -3,8 +3,9 @@ import bitstring
 from .frame import Frame
 from hpack import Encoder, Decoder
 
+
 class HeadersFrame(Frame):
-    FRAME_TYPE='0x01'
+    FRAME_TYPE = "0x01"
 
     def __init__(self, encoder, decoder):
         super(HeadersFrame, self).__init__()
@@ -21,7 +22,7 @@ class HeadersFrame(Frame):
         self.headers = {}
         self.header_block_fragment = None
 
-    def read(self, raw_data, padding_length=0, exclusive=False, stream_id='0x0'):
+    def read(self, raw_data, padding_length=0, exclusive=False, stream_id="0x0"):
         super(HeadersFrame, self).read(raw_data)
         self.end_stream = self.frame_flags[7]
         self.end_headers = self.frame_flags[5]
@@ -37,8 +38,10 @@ class HeadersFrame(Frame):
             frame_body_offset -= 40
         if self.padded:
             frame_body_offset -= 8
-        self.header_block_fragment = self.decoder.decode(raw_data.read(frame_body_offset - (self.padding_length * 8)).bytes)
-        
+        self.header_block_fragment = self.decoder.decode(
+            raw_data.read(frame_body_offset - (self.padding_length * 8)).bytes
+        )
+
         self.headers = {}
         for header_field in self.header_block_fragment:
             self.headers[header_field[0]] = header_field[1]
@@ -46,15 +49,25 @@ class HeadersFrame(Frame):
 
     def get_method(self):
         return self.headers[":method"]
-    
+
     def get_path(self):
         return self.headers[":path"]
-    
+
     @staticmethod
     def normalize_header_fields(headers):
-        return {k.lower(): v for k,v in list(headers.items())}
-    
-    def write(self, stream_id, flags={}, padding_length=0, exclusive=1, stream_dependency=0, priority_weight=255, headers={}, headers_block_fragment=None):
+        return {k.lower(): v for k, v in list(headers.items())}
+
+    def write(
+        self,
+        stream_id,
+        flags={},
+        padding_length=0,
+        exclusive=1,
+        stream_dependency=0,
+        priority_weight=255,
+        headers={},
+        headers_block_fragment=None,
+    ):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
         self.end_headers = encoded_flags[5] = int(flags["end_headers"])
@@ -78,12 +91,12 @@ class HeadersFrame(Frame):
             HeadersFrame.FRAME_TYPE,
             len(self.header_block_fragment) + self._frame_metadata_length(),
             encoded_flags,
-            stream_id
+            stream_id,
         )
-        
+
         if self.padded:
             frame_data.update({"padding_length": 0})
-        
+
         if self.priority:
             frame_data.update({"exclusive": str(exclusive)})
             frame_data.update({"stream_dependency": stream_dependency})
@@ -91,12 +104,12 @@ class HeadersFrame(Frame):
 
         frame_data.update({"header_block_fragment": self.header_block_fragment})
         return bitstring.pack(frame_format, **frame_data)
-    
+
     def _frame_body_packing_format(self):
         frame_body_format = ""
         if self.padded:
             frame_body_format += "uint:8=padding_length,"
-        
+
         if self.priority:
             frame_body_format += "bin:1=exclusive,"
             frame_body_format += "uint:31=stream_dependency,"
@@ -104,7 +117,7 @@ class HeadersFrame(Frame):
         frame_body_format += "bytes=header_block_fragment"
 
         return frame_body_format
-    
+
     def _frame_metadata_length(self):
         length = 0
         if self.padded:

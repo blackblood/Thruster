@@ -3,15 +3,16 @@ import bitstring
 
 from .frame import Frame
 
+
 class DataFrame(Frame):
-    FRAME_TYPE='0x00'
+    FRAME_TYPE = "0x00"
 
     def __init__(self, settings):
         self.connection_settings = settings
         self.end_stream = None
         self.padded = None
         self.body = ""
-    
+
     def read(self, raw_data):
         super(DataFrame, self).read(raw_data)
         self.end_stream = self.encoded_flags[7]
@@ -21,7 +22,7 @@ class DataFrame(Frame):
             self.body = raw_data.read(self.frame_length - 1 - self.padding_length).bytes
         else:
             self.body = raw_data.read(self.frame_length - 1).bytes
-    
+
     def write(self, stream_id, flags={}, padding_length=0, body=""):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
         self.end_stream = encoded_flags[7] = int(flags["end_stream"])
@@ -34,12 +35,12 @@ class DataFrame(Frame):
             DataFrame.FRAME_TYPE,
             len(self.body) + self._frame_metadata_length(),
             encoded_flags,
-            stream_id
+            stream_id,
         )
 
         if self.padded:
-            frame_data.update({'padding_length': 0})
-        frame_data.update({'response_payload': self.body})
+            frame_data.update({"padding_length": 0})
+        frame_data.update({"response_payload": self.body})
         return bitstring.pack(frame_format, **frame_data)
 
     def _frame_body_packing_format(self):
@@ -48,6 +49,6 @@ class DataFrame(Frame):
             frame_body_format += "uint:8=padding_length"
         frame_body_format += "bytes=response_payload"
         return frame_body_format
-    
+
     def _frame_metadata_length(self):
         return 1 if self.padded else 0
