@@ -8,6 +8,14 @@ import queue
 
 
 class Stream(object):
+    IDLE = "idle"
+    HALF_CLOSED_LOCAL = "half_closed_local"
+    HALF_CLOSED_REMOTE = "half_closed_remote"
+    RESERVED_LOCAL = "reserved_local"
+    RESERVED_REMOTE = "reserved_remote"
+    OPEN = "open"
+    CLOSED = "closed"
+
     def __init__(
         self, connection_settings, header_encoder, header_decoder, client_connection
     ):
@@ -16,6 +24,10 @@ class Stream(object):
         self.header_decoder = header_decoder
         self.client_connection = client_connection
         self.response_queue = queue.Queue()
+        self.status = Stream.IDLE
+
+    def update_status(self, status):
+        self.status = status
 
     async def send_response(self, event):
         if event["type"] == "http.response.start":

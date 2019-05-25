@@ -14,6 +14,7 @@ from http2.frames.headers_frame import HeadersFrame
 from http2.frames.continuation_frame import ContinuationFrame
 from http2.frames.data_frame import DataFrame
 from http2.frames.rst_frame import RstStreamFrame
+from http2.frames.window_update_frame import WindowUpdateFrame
 from http2.frames import utils
 from http2.stream import Stream
 
@@ -32,7 +33,8 @@ class WSGIServer(object):
         self.request_data = ""
         self.headers_set = []
         self.connection_established = False
-        self.response_queue = queue.Queue()
+        self.streams = {}
+        self.receiving_headers = False
 
     def set_app(self, application):
         self.application = application
@@ -57,42 +59,54 @@ class WSGIServer(object):
             while True:
                 self.request_data = self.client_connection.recv(4096)
                 self.frame = self.parse_request(self.request_data)
+                current_stream = self.streams.get(str(self.frame.stream_id))
+                if (
+                    self.receiving_headers
+                    and self.last_stream_id != self.frame.stream_id
+                    and type(self.frame) not in [ContinuationFrame]
+                ):
+                    self.client_connection.sendall(
+                        GoAwayFrame.connection_error_frame(self.last_stream_id).bytes
+                    )
                 if isinstance(self.frame, SettingsFrame):
                     self.client_connection.sendall(
                         SettingsFrame.get_acknowledgement_frame().bytes
                     )
                     self.connection_established = True
                 elif isinstance(self.frame, HeadersFrame):
+                    current_stream = Stream(
+                        self.connection_settings,
+                        self.header_encoder,
+                        self.header_decoder,
+                        self.client_connection,
+                    )
+                    current_stream.stream_id = self.frame.stream_id
+                    self.streams[str(current_stream.stream_id)] = current_stream
                     if self.frame.end_stream:
-                        current_stream = Stream(
-                            self.connection_settings,
-                            self.header_encoder,
-                            self.header_decoder,
-                            self.client_connection,
-                        )
-                        current_stream.stream_id = self.frame.stream_id
-                        asgi_scope = self.get_asgi_event_dict(self.frame)
+                        current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
+                        current_stream.asgi_scope = (
+                            asgi_scope
+                        ) = self.get_asgi_event_dict(self.frame)
                         current_stream.asgi_app = self.application(asgi_scope)
                         await current_stream.asgi_app(
                             self.trigger_asgi_application, current_stream.send_response
                         )
                     else:
-                        self.asgi_scope = self.get_asgi_event_dict(self.frame)
+                        self.receiving_headers = True
+                        current_stream.asgi_scope = self.get_asgi_event_dict(self.frame)
                 elif isinstance(self.frame, ContinuationFrame):
                     if self.frame.end_stream:
-                        current_stream = Stream(
-                            self.connection_settings,
-                            self.header_encoder,
-                            self.header_decoder,
-                            self.client_connection,
+                        current_stream = self.streams[self.frame.stream_id]
+                        current_stream.asgi_app = self.application(
+                            current_stream.asgi_scope
                         )
-                        current_stream.asgi_app = self.application(self.asgi_scope)
                         current_stream.stream_id = self.frame.stream_id
+                        current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
                         await current_stream.asgi_app(
                             self.trigger_asgi_application, current_stream.send_response
                         )
                     else:
-                        self.asgi_scope["headers"].extend(
+                        current_stream.asgi_scope["headers"].extend(
                             [[k, v] for k, v in self.frame.headers.iteritems()]
                         )
                 elif isinstance(self.frame, DataFrame):
@@ -102,8 +116,11 @@ class WSGIServer(object):
                         "RSTFrame received with error: (%d, %s)"
                         % (self.frame.error_code, self.frame.description)
                     )
+                elif isinstance(self.frame, WindowUpdateFrame):
+                    pass
                 else:
                     pass
+                self.last_stream_id = self.frame.stream_id
         except Exception:
             print("Error occurred in handle_request")
             print((traceback.format_exc()))
@@ -138,6 +155,10 @@ class WSGIServer(object):
                 data_frame = DataFrame()
                 data_frame.read(bits)
                 return data_frame
+            elif frame_type == "08":
+                window_update_frame = WindowUpdateFrame()
+                window_update_frame.read(bits)
+                return window_update_frame
 
     def set_env(self):
         env = {}
