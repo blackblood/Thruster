@@ -7,21 +7,20 @@ from .frame import Frame
 class DataFrame(Frame):
     FRAME_TYPE = "0x00"
 
-    def __init__(self, settings):
-        self.connection_settings = settings
+    def __init__(self):
         self.end_stream = None
         self.padded = None
         self.body = ""
 
     def read(self, raw_data):
         super(DataFrame, self).read(raw_data)
-        self.end_stream = self.encoded_flags[7]
-        self.padded = self.encoded_flags[4]
+        self.end_stream = int(self.frame_flags[7])
+        self.padded = int(self.frame_flags[4])
         if self.padded:
             self.padding_length = raw_data.read("uint:8")
             self.body = raw_data.read(self.frame_length - 1 - self.padding_length).bytes
         else:
-            self.body = raw_data.read(self.frame_length - 1).bytes
+            self.body = raw_data.read(self.frame_length * 8).bytes
 
     def write(self, stream_id, flags={}, padding_length=0, body=""):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")

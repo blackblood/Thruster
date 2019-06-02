@@ -65,6 +65,7 @@ class MasterWorker:
         if pid == 0:
             worker = Worker(self.server_name, self.server_port)
             worker.set_app(self.application)
+            worker.event_loop = asyncio.get_event_loop()
             while True:
                 try:
                     client_connection, client_address = self.listen_socket.accept()

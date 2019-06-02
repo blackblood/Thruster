@@ -24,8 +24,8 @@ class HeadersFrame(Frame):
 
     def read(self, raw_data, padding_length=0, exclusive=False, stream_id="0x0"):
         super(HeadersFrame, self).read(raw_data)
-        self.end_stream = self.frame_flags[7]
-        self.end_headers = self.frame_flags[5]
+        self.end_stream = int(self.frame_flags[7])
+        self.end_headers = int(self.frame_flags[5])
         self.padded = int(self.frame_flags[4])
         self.priority = int(self.frame_flags[2])
         self.padding_length = raw_data.read("uint:8") if self.padded else 0

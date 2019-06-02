@@ -24,10 +24,27 @@ class Stream(object):
         self.header_decoder = header_decoder
         self.client_connection = client_connection
         self.response_queue = queue.Queue()
+        self.data_frame_queue = asyncio.Queue()
         self.status = Stream.IDLE
 
     def update_status(self, status):
         self.status = status
+    
+    async def trigger_asgi_application(self):
+        return {"type": "http.request", "body": b"", "more_body": False}
+    
+    async def asgi_more_data(self):
+        print("inside asgi_more_data >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+        frame = await self.data_frame_queue.get()
+        print("got data from queue")
+        asgi_event = {"type": "http.request", "body": frame.body}
+        if frame.end_stream:
+            asgi_event["more_body"] = False
+        else:
+            asgi_event["more_body"] = True
+        
+        # self.data_frame_queue.task_done()
+        return asgi_event
 
     async def send_response(self, event):
         if event["type"] == "http.response.start":
@@ -90,7 +107,7 @@ class Stream(object):
                     )
         elif event["type"] == "http.response.body":
             if event["body"]:
-                data_frame = DataFrame(self.connection_settings)
+                data_frame = DataFrame()
                 try:
                     for chunk, is_last in utils.get_chunks(
                         event["body"], self.connection_settings.max_frame_size
