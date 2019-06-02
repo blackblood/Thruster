@@ -34,16 +34,13 @@ class Stream(object):
         return {"type": "http.request", "body": b"", "more_body": False}
     
     async def asgi_more_data(self):
-        print("inside asgi_more_data >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         frame = await self.data_frame_queue.get()
-        print("got data from queue")
         asgi_event = {"type": "http.request", "body": frame.body}
         if frame.end_stream:
             asgi_event["more_body"] = False
         else:
             asgi_event["more_body"] = True
         
-        # self.data_frame_queue.task_done()
         return asgi_event
 
     async def send_response(self, event):

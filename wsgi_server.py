@@ -112,11 +112,9 @@ class WSGIServer(object):
                                 current_stream.asgi_more_data, current_stream.send_response
                             )
                 elif isinstance(self.frame, DataFrame):
-                    print("received data_frame")
                     await current_stream.data_frame_queue.put(self.frame)
                     if self.frame.end_stream:
                         await asyncio.wait(self.tasks)
-                    print("put data into queue +++++++++++++++")
                 elif isinstance(self.frame, RstStreamFrame):
                     print(
                         "RSTFrame received with error: (%d, %s)"
