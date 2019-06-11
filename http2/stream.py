@@ -31,10 +31,13 @@ class Stream(object):
         self.status = status
     
     async def trigger_asgi_application(self):
+        print("inside trigger_asgi_application")
         return {"type": "http.request", "body": b"", "more_body": False}
     
     async def asgi_more_data(self):
+        print("inside asgi_more_data")
         frame = await self.data_frame_queue.get()
+        print("frame = %s" % frame)
         asgi_event = {"type": "http.request", "body": frame.body}
         if frame.end_stream:
             asgi_event["more_body"] = False
@@ -44,6 +47,9 @@ class Stream(object):
         return asgi_event
 
     async def send_response(self, event):
+        print("inside send_response")
+        print(event)
+        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         if event["type"] == "http.response.start":
             headers_frame = HeadersFrame(self.header_encoder, self.header_decoder)
             response_headers = {}
@@ -123,7 +129,6 @@ class Stream(object):
                         )
                 except OSError as e:
                     print(e)
-
             while not self.response_queue.empty():
                 self.client_connection.sendall(self.response_queue.get().bytes)
         else:

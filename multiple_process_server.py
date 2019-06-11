@@ -72,6 +72,7 @@ class MasterWorker:
                     worker.client_connection = self.context.wrap_socket(
                         client_connection, server_side=True
                     )
+                    worker.client_connection.setblocking(False)
                     print(
                         (
                             "selected alpn protocol: %s"
@@ -79,7 +80,9 @@ class MasterWorker:
                         )
                     )
                     print(("handled by pid: %d" % os.getpid()))
-                    await worker.handle_request()
+                    t1 = worker.event_loop.create_task(worker.get_frame())
+                    t2 = worker.event_loop.create_task(worker.handle_request())
+                    await asyncio.wait([t1, t2])
                 except Exception:
                     print((traceback.format_exc()))
             os._exit(0)
@@ -99,7 +102,6 @@ def serve_forever():
     master_worker = MasterWorker()
     event_loop = asyncio.get_event_loop()
     event_loop.run_until_complete(master_worker.create_worker_pool())
-
 
 if __name__ == "__main__":
     serve_forever()
