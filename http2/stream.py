@@ -52,20 +52,19 @@ class Stream(object):
         print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         if event["type"] == "http.response.start":
             headers_frame = HeadersFrame(self.header_encoder, self.header_decoder)
-            response_headers = {}
-            for h in event["headers"]:
-                response_headers[h[0]] = h[1]
-            response_headers[":status"] = event["status"]
+            headers_frame.headers = dict((k, v) for k, v in event["headers"])
+            headers_frame.headers[":status"] = event["status"]
             encoded_headers = self.header_encoder.encode(
-                HeadersFrame.normalize_header_fields(response_headers)
+                HeadersFrame.normalize_header_fields(headers_frame.headers)
             )
+            end_stream = "1" if headers_frame.headers[b"Content-Length"] == b'0' else "0"
 
             if len(encoded_headers) <= self.connection_settings.max_frame_size:
                 self.response_queue.put(
                     headers_frame.write(
                         self.stream_id,
                         flags={
-                            "end_stream": "0",
+                            "end_stream": end_stream,
                             "end_headers": "1",
                             "padded": "0",
                             "priority": "1",
@@ -80,7 +79,7 @@ class Stream(object):
                     headers_frame.write(
                         self.stream_id,
                         flags={
-                            "end_stream": "0",
+                            "end_stream": end_stream,
                             "end_headers": "0",
                             "padded": "0",
                             "priority": "1",
@@ -100,7 +99,7 @@ class Stream(object):
                         ContinuationFrame().write(
                             self.stream_id,
                             flags={
-                                "end_stream": "0",
+                                "end_stream": end_stream,
                                 "end_headers": "1" if is_last else "0",
                                 "padded": "0",
                                 "priority": "1",
@@ -115,6 +114,7 @@ class Stream(object):
                     for chunk, is_last in utils.get_chunks(
                         event["body"], self.connection_settings.max_frame_size
                     ):
+                        print("is_last: %s" % is_last)
                         self.response_queue.put(
                             data_frame.write(
                                 self.stream_id,

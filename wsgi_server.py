@@ -37,7 +37,6 @@ class WSGIServer(object):
         self.streams = {}
         self.receiving_headers = False
         self.event_loop = None
-        self.frame_queue = asyncio.Queue()
         self.tasks = []
 
     def set_app(self, application):
@@ -158,6 +157,7 @@ class WSGIServer(object):
             bits = bitstring.ConstBitStream(bytes=raw_data)
             frame_length = bits.read("uint:24")
             frame_type = bits.read("hex:8")
+            print("frame_type = %s" % frame_type)
             if frame_type == "04":
                 self.connection_settings = SettingsFrame().read(bits)
                 return self.connection_settings
