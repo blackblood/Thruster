@@ -38,6 +38,14 @@ class RstStreamFrame(Frame):
             RstStreamFrame.HTTP_1_1_REQUIRED: "HTTP 1.1 REQUIRED",
         }
 
+    def read_header(self, raw_data):
+        super(RstStreamFrame, self).read(raw_data)
+    
+    def read_body(self, raw_data):
+        bits = bitstring.ConstBitStream(bytes=raw_data)
+        self.error_code = bits.read("uint:32")
+        self.description = self.description_dict[self.error_code]
+
     def read(self, raw_data):
         super(RstStreamFrame, self).read(raw_data)
         self.error_code = raw_data.read("uint:32")

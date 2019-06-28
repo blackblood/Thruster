@@ -8,9 +8,12 @@ class PingFrame(Frame):
         self.ack = None
         self.body = None
     
-    def read(self, raw_data):
+    def read_header(self, raw_data):
         super(PingFrame, self).read(raw_data)
         self.ack = int(self.frame_flags[7])
+        
+    def read_body(self, raw_data):
+        raw_data = bitstring.ConstBitStream(bytes=raw_data)
         self.body = raw_data.read(64).bytes
     
     def write(self, ack=1):

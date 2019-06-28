@@ -12,10 +12,14 @@ class DataFrame(Frame):
         self.padded = None
         self.body = ""
 
-    def read(self, raw_data):
+    def read_header(self, raw_data):
+        raw_data = bitstring.ConstBitStream(bytes=raw_data)
         super(DataFrame, self).read(raw_data)
         self.end_stream = int(self.frame_flags[7])
         self.padded = int(self.frame_flags[4])
+    
+    def read_body(self, raw_data):
+        raw_data = bitstring.ConstBitStream(bytes=raw_data)
         if self.padded:
             self.padding_length = raw_data.read("uint:8")
             self.body = raw_data.read(self.frame_length - 1 - self.padding_length).bytes

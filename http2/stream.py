@@ -17,12 +17,12 @@ class Stream(object):
     CLOSED = "closed"
 
     def __init__(
-        self, connection_settings, header_encoder, header_decoder, client_connection
+        self, connection_settings, header_encoder, header_decoder, stream_writer
     ):
         self.connection_settings = connection_settings
         self.header_encoder = header_encoder
         self.header_decoder = header_decoder
-        self.client_connection = client_connection
+        self.stream_writer = stream_writer
         self.response_queue = queue.Queue()
         self.data_frame_queue = asyncio.Queue()
         self.status = Stream.IDLE
@@ -31,13 +31,12 @@ class Stream(object):
         self.status = status
     
     async def trigger_asgi_application(self):
-        print("inside trigger_asgi_application")
         return {"type": "http.request", "body": b"", "more_body": False}
     
     async def asgi_more_data(self):
-        print("inside asgi_more_data")
+        import ipdb; ipdb.set_trace()
         frame = await self.data_frame_queue.get()
-        print("frame = %s" % frame)
+        import ipdb; ipdb.set_trace()
         asgi_event = {"type": "http.request", "body": frame.body}
         if frame.end_stream:
             asgi_event["more_body"] = False
@@ -47,9 +46,7 @@ class Stream(object):
         return asgi_event
 
     async def send_response(self, event):
-        print("inside send_response")
         print(event)
-        print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
         if event["type"] == "http.response.start":
             headers_frame = HeadersFrame(self.header_encoder, self.header_decoder)
             headers_frame.headers = dict((k, v) for k, v in event["headers"])
@@ -57,14 +54,14 @@ class Stream(object):
             encoded_headers = self.header_encoder.encode(
                 HeadersFrame.normalize_header_fields(headers_frame.headers)
             )
-            end_stream = "1" if headers_frame.headers[b"Content-Length"] == b'0' else "0"
+            headers_frame.end_stream = "1" if headers_frame.headers[b"Content-Length"] == b'0' else "0"
 
             if len(encoded_headers) <= self.connection_settings.max_frame_size:
                 self.response_queue.put(
                     headers_frame.write(
                         self.stream_id,
                         flags={
-                            "end_stream": end_stream,
+                            "end_stream": headers_frame.end_stream,
                             "end_headers": "1",
                             "padded": "0",
                             "priority": "1",
@@ -79,7 +76,7 @@ class Stream(object):
                     headers_frame.write(
                         self.stream_id,
                         flags={
-                            "end_stream": end_stream,
+                            "end_stream": headers_frame.end_stream,
                             "end_headers": "0",
                             "padded": "0",
                             "priority": "1",
@@ -114,7 +111,6 @@ class Stream(object):
                     for chunk, is_last in utils.get_chunks(
                         event["body"], self.connection_settings.max_frame_size
                     ):
-                        print("is_last: %s" % is_last)
                         self.response_queue.put(
                             data_frame.write(
                                 self.stream_id,
@@ -129,7 +125,11 @@ class Stream(object):
                         )
                 except OSError as e:
                     print(e)
+            else:
+                print("self.response_queue %s" % self.response_queue.qsize())
+            
             while not self.response_queue.empty():
-                self.client_connection.sendall(self.response_queue.get().bytes)
+                self.stream_writer.write(self.response_queue.get().bytes)
+                await self.stream_writer.drain()
         else:
             raise ValueError("Unkown event type: %s" % event["type"])

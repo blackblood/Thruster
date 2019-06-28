@@ -18,6 +18,7 @@ from http2.frames.window_update_frame import WindowUpdateFrame
 from http2.frames.ping_frame import PingFrame
 from http2.frames import utils
 from http2.stream import Stream
+from http2.frames.frame_factory import FrameFactory
 
 
 class WSGIServer(object):
@@ -28,7 +29,8 @@ class WSGIServer(object):
     def __init__(self, server_name, server_port):
         self.server_name = server_name
         self.server_port = server_port
-        self.client_connection = None
+        self.socket_reader = None
+        self.socket_writer = None
         self.header_encoder = Encoder()
         self.header_decoder = Decoder()
         self.request_data = ""
@@ -44,45 +46,55 @@ class WSGIServer(object):
 
     async def get_frame(self):
         while True:
-            print("inside get_frame")
-            request_data = await self.event_loop.sock_recv(self.client_connection, 4096)
-            print("after receiving socket data")
-            frame = self.parse_request(request_data)
-            print("frame = %s" % frame)
-            if isinstance(frame, DataFrame):
-                current_stream = self.streams.get(str(frame.stream_id))
-                await current_stream.data_frame_queue.put(frame)
-            else:
-                await self.frame_queue.put(frame)
+            print("Waiting for sock_recv")
+            # import ipdb; ipdb.set_trace()
+            if not self.connection_established:
+                connection_preface = await self.socket_reader.read(24)
+                self.connection_established = True
+            
+            import ipdb;ipdb.set_trace()
+            request_data = await self.socket_reader.read(9)
+            frame = FrameFactory.read_frame(request_data, self.header_encoder, self.header_decoder)
+            # import ipdb;ipdb.set_trace()
+            request_data = await self.socket_reader.read(frame.frame_length)
+            frame.read_body(request_data)
+            print(frame)
+            if frame:
+                if isinstance(frame, DataFrame):
+                    import ipdb; ipdb.set_trace()
+                    current_stream = self.streams.get(str(frame.stream_id))
+                    await current_stream.data_frame_queue.put(frame)
+                else:
+                    await self.frame_queue.put(frame)
             await asyncio.sleep(0)
 
     async def handle_request(self):
         try:
             while True:
-                print("inside handle_request")
+                print("Waiting for frame_queue.get()")
                 self.frame = await self.frame_queue.get()
-                print("self.frame = %s" % self.frame)
-                # self.frame_queue.task_done()
                 current_stream = self.streams.get(str(self.frame.stream_id))
                 if (
                     self.receiving_headers
                     and self.last_stream_id != self.frame.stream_id
                     and type(self.frame) not in [ContinuationFrame]
                 ):
-                    print("sending go_away frame")
-                    self.client_connection.sendall(
+                    self.socket_writer.write(
                         GoAwayFrame.connection_error_frame(self.last_stream_id).bytes
                     )
+                    await self.socket_writer.drain()
                 if isinstance(self.frame, SettingsFrame):
-                    self.client_connection.sendall(
+                    self.connection_settings = self.frame
+                    self.socket_writer.write(
                         SettingsFrame.get_acknowledgement_frame().bytes
                     )
+                    await self.socket_writer.drain()
                 elif isinstance(self.frame, HeadersFrame):
                     current_stream = Stream(
                         self.connection_settings,
                         self.header_encoder,
                         self.header_decoder,
-                        self.client_connection,
+                        self.socket_writer,
                     )
                     current_stream.stream_id = self.frame.stream_id
                     self.streams[str(current_stream.stream_id)] = current_stream
@@ -135,9 +147,10 @@ class WSGIServer(object):
                     if not self.frame.ack:
                         ping_frame = PingFrame()
                         ping_frame.body = self.frame.body
-                        self.client_connection.sendall(
+                        self.socket_writer.write(
                             ping_frame.write().bytes
                         )
+                        await self.socket_writer.drain()
                 else:
                     pass
                 self.last_stream_id = self.frame.stream_id
@@ -155,9 +168,7 @@ class WSGIServer(object):
                 self.connection_settings = SettingsFrame().read(raw_data)
                 return self.connection_settings
             bits = bitstring.ConstBitStream(bytes=raw_data)
-            frame_length = bits.read("uint:24")
             frame_type = bits.read("hex:8")
-            print("frame_type = %s" % frame_type)
             if frame_type == "04":
                 self.connection_settings = SettingsFrame().read(bits)
                 return self.connection_settings

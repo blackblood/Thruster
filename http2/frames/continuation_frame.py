@@ -12,12 +12,13 @@ class ContinuationFrame(Frame):
         self.encoder = encoder
         self.decoder = decoder
 
-    def read(self, raw_data):
-        super(ContinuationFrame, self).read(raw_data)
+    def read_header(self, raw_data):
+        bits = bitstring.ConstBitStream(bytes=raw_data)
+        super(ContinuationFrame, self).read(bits)
         self.end_headers = self.frame_flags[5]
-        self.header_block_fragment = self.decoder.decode(
-            raw_data.read(self.frame_length).bytes
-        )
+    
+    def read_body(self, raw_data):
+        self.header_block_fragment = self.decoder.decode(raw_data)
         for header_field in self.header_block_fragment:
             self.headers[header_field[0]] = header_field[1]
 

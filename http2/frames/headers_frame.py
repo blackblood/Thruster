@@ -22,6 +22,31 @@ class HeadersFrame(Frame):
         self.headers = {}
         self.header_block_fragment = None
 
+    def read_header(self, raw_data):
+        super(HeadersFrame, self).read(raw_data)
+        self.end_stream = int(self.frame_flags[7])
+        self.end_headers = int(self.frame_flags[5])
+        self.padded = int(self.frame_flags[4])
+        self.priority = int(self.frame_flags[2])
+
+    def read_body(self, raw_data):
+        bits = bitstring.ConstBitStream(bytes=raw_data)
+        self.padding_length = bits.read("uint:8") if self.padded else 0
+        self.exclusive = int(bits.read("bin:1")) if self.priority else None
+        self.stream_dependency = bits.read("uint:31") if self.priority else None
+        self.priority_weight = bits.read("uint:8") if self.priority else None
+        frame_body_offset = self.frame_length * 8
+        if self.priority:
+            frame_body_offset -= 40
+        if self.padded:
+            frame_body_offset -= 8
+        self.header_block_fragment = self.decoder.decode(
+            bits.read(frame_body_offset - (self.padding_length * 8)).bytes
+        )
+        self.headers = {}
+        for header_field in self.header_block_fragment:
+            self.headers[header_field[0]] = header_field[1]
+
     def read(self, raw_data, padding_length=0, exclusive=False, stream_id="0x0"):
         super(HeadersFrame, self).read(raw_data)
         self.end_stream = int(self.frame_flags[7])
