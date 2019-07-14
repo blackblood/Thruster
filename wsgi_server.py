@@ -46,22 +46,17 @@ class WSGIServer(object):
 
     async def get_frame(self):
         while True:
-            print("Waiting for sock_recv")
-            # import ipdb; ipdb.set_trace()
             if not self.connection_established:
                 connection_preface = await self.socket_reader.read(24)
                 self.connection_established = True
             
-            import ipdb;ipdb.set_trace()
             request_data = await self.socket_reader.read(9)
             frame = FrameFactory.read_frame(request_data, self.header_encoder, self.header_decoder)
-            # import ipdb;ipdb.set_trace()
             request_data = await self.socket_reader.read(frame.frame_length)
             frame.read_body(request_data)
             print(frame)
             if frame:
                 if isinstance(frame, DataFrame):
-                    import ipdb; ipdb.set_trace()
                     current_stream = self.streams.get(str(frame.stream_id))
                     await current_stream.data_frame_queue.put(frame)
                 else:
@@ -71,7 +66,6 @@ class WSGIServer(object):
     async def handle_request(self):
         try:
             while True:
-                print("Waiting for frame_queue.get()")
                 self.frame = await self.frame_queue.get()
                 current_stream = self.streams.get(str(self.frame.stream_id))
                 if (

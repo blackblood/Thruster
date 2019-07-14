@@ -13,8 +13,7 @@ class ContinuationFrame(Frame):
         self.decoder = decoder
 
     def read_header(self, raw_data):
-        bits = bitstring.ConstBitStream(bytes=raw_data)
-        super(ContinuationFrame, self).read(bits)
+        super(ContinuationFrame, self).read(raw_data)
         self.end_headers = self.frame_flags[5]
     
     def read_body(self, raw_data):

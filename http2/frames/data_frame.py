@@ -13,7 +13,6 @@ class DataFrame(Frame):
         self.body = ""
 
     def read_header(self, raw_data):
-        raw_data = bitstring.ConstBitStream(bytes=raw_data)
         super(DataFrame, self).read(raw_data)
         self.end_stream = int(self.frame_flags[7])
         self.padded = int(self.frame_flags[4])

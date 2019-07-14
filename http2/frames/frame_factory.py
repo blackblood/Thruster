@@ -6,6 +6,7 @@ from http2.frames.data_frame import DataFrame
 from http2.frames.rst_frame import RstStreamFrame
 from http2.frames.window_update_frame import WindowUpdateFrame
 from http2.frames.ping_frame import PingFrame
+from http2.frames.goaway_frame import GoAwayFrame
 
 class FrameFactory(object):
     def __init__(self):
@@ -31,6 +32,8 @@ class FrameFactory(object):
             frame = WindowUpdateFrame()
         elif frame_type == "06":
             frame = PingFrame()
+        elif frame_type == "07":
+            frame = GoAwayFrame()
         
         frame.read_header(bits)
         return frame

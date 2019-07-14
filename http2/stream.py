@@ -34,9 +34,7 @@ class Stream(object):
         return {"type": "http.request", "body": b"", "more_body": False}
     
     async def asgi_more_data(self):
-        import ipdb; ipdb.set_trace()
         frame = await self.data_frame_queue.get()
-        import ipdb; ipdb.set_trace()
         asgi_event = {"type": "http.request", "body": frame.body}
         if frame.end_stream:
             asgi_event["more_body"] = False
