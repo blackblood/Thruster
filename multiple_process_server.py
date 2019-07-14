@@ -35,7 +35,7 @@ class MasterWorker:
 
     async def run(self):
         signal.signal(signal.SIGINT, self.shutdown_workers)
-        server = await asyncio.start_server(self.set_up_producer_consumer, self.HOST, self.PORT, family=socket.AF_INET, ssl=self.ssl_context, reuse_address=True)
+        server = await asyncio.start_server(self.set_up_producer_consumer, self.HOST, self.PORT, family=socket.AF_INET, ssl=self.ssl_context, reuse_address=True, backlog=self.REQUEST_QUEUE_SIZE)
         await server.wait_closed()
     
     async def set_up_producer_consumer(self, stream_reader, stream_writer):
@@ -56,7 +56,7 @@ def serve_forever():
     parser.add_argument("--app", nargs=1, help="path to your ASGI Application")
     parser.add_argument("--host", nargs=1, help="Host IP Address", default="127.0.0.1")
     parser.add_argument("--port", nargs=1, help="Port Number", default=8888)
-    parser.add_argument("--queue-size", nargs=1, help="Request Queue Size", default=15)
+    parser.add_argument("--queue-size", nargs=1, help="Request Queue Size", default=100)
     arguments = parser.parse_args()
     master_worker = MasterWorker(arguments.app[0], arguments.host, arguments.port, arguments.queue_size)
     asyncio.run(master_worker.run())
