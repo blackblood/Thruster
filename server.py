@@ -7,7 +7,7 @@ import asyncio
 import sys
 import argparse
 
-from wsgi_server import WSGIServer as Worker
+from worker import Worker
 from datetime import datetime
 from http_utils.base import (
     get_http_status_text,
@@ -53,12 +53,12 @@ class MasterWorker:
 
 def serve_forever():
     parser = argparse.ArgumentParser(prog="HTTP/2 ASGI compatible web server for python.")
-    parser.add_argument("--app", nargs=1, help="path to your ASGI Application")
-    parser.add_argument("--host", nargs=1, help="Host IP Address", default="127.0.0.1")
-    parser.add_argument("--port", nargs=1, help="Port Number", default=8888)
-    parser.add_argument("--queue-size", nargs=1, help="Request Queue Size", default=100)
+    parser.add_argument("--app", metavar="app", help="path to your ASGI Application")
+    parser.add_argument("--host", metavar="host", help="Host IP Address", default="127.0.0.1")
+    parser.add_argument("--port", metavar="port", type=int, help="Port Number", default=8000)
+    parser.add_argument("--queue-size", metavar="queue_size", type=int, help="Request Queue Size", default=100)
     arguments = parser.parse_args()
-    master_worker = MasterWorker(arguments.app[0], arguments.host, arguments.port, arguments.queue_size)
+    master_worker = MasterWorker(arguments.app, arguments.host, arguments.port, arguments.queue_size)
     asyncio.run(master_worker.run())
 
 if __name__ == "__main__":

@@ -21,7 +21,7 @@ from http2.stream import Stream
 from http2.frames.frame_factory import FrameFactory
 
 
-class WSGIServer(object):
+class Worker(object):
     address_family = socket.AF_INET
     socket_type = socket.SOCK_STREAM
     request_queue_size = 1
