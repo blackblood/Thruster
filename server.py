@@ -41,7 +41,7 @@ class MasterWorker:
     async def set_up_producer_consumer(self, stream_reader, stream_writer):
         worker = Worker(socket.getfqdn(self.HOST), self.PORT)
         sys.path.insert(0, self.APP)
-        module = __import__(self.APP, globals(), locals(), ["asgi"], 0)
+        module = __import__(self.APP.split("/")[-1], globals(), locals(), ["asgi"], 0)
         worker.application = module.asgi.application
         worker.frame_queue = asyncio.Queue()
         worker.socket_reader = stream_reader
