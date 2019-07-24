@@ -24,7 +24,7 @@ SECRET_KEY = '8m#redatjfy-tppx$qajgn$n+($e=u$4_#)4lcqlg(yji1!did'
 DEBUG = True
 
 ALLOWED_HOSTS = ["unknown"]
-
+CSRF_TRUSTED_ORIGINS = ["localhost:8888"]
 
 # Application definition
 
@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'channels',
+    'mysite',
 ]
 
 MIDDLEWARE = [
