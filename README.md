@@ -1,4 +1,4 @@
-# http_server
+# Thruster
 HTTP/2 Server that just works
 
 This is my attempt at writing a fully functional HTTP 2.0 Server in Python. Its a work in progress right now.
