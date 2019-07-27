@@ -52,5 +52,11 @@ class RstStreamFrame(Frame):
         self.description = self.description_dict[self.error_code]
         return self
 
-    def write(self):
-        pass
+    def write(self, error_stream_id, error_code):
+        frame_header_format = super(RstStreamFrame, self).frame_header_packing_format()
+        frame_format = frame_header_format + "," + self._frame_body_packing_format()
+        frame_data = super(RstStreamFrame, self).write(RstStreamFrame.FRAME_TYPE, 32, "", error_stream_id)
+        frame_data.update(
+            {"error_code": error_code}
+        )
+        return bitstring.pack(frame_format, **frame_data)

@@ -69,6 +69,8 @@ class Stream(object):
                         ],
                     )
                 )
+                if headers_frame.end_stream:
+                    self.update_status(Stream.CLOSED)
             else:
                 self.response_queue.put(
                     headers_frame.write(
@@ -121,6 +123,8 @@ class Stream(object):
                                 body=chunk,
                             )
                         )
+                    if data_frame.end_stream:
+                        self.update_status(Stream.CLOSED)
                 except OSError as e:
                     print(e)
             else:

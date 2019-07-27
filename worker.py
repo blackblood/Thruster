@@ -43,6 +43,25 @@ class Worker(object):
 
     def set_app(self, application):
         self.application = application
+    
+    def send_connection_error(self, last_stream_id):
+        """
+        As per RFC 7540, An endpoint should send a goaway frame and close the TCP
+        connection when a connection error is encountered.
+        """
+        self.socket_writer.write(
+            GoAwayFrame.connection_error_frame(last_stream_id).bytes
+        )
+        await self.socket_writer.drain()
+        self.socket_writer.close()
+        await self.socket_writer.wait_closed()
+    
+    def send_stream_error(self, error_stream, error_code):
+        self.socket_writer.write(
+            RstStreamFrame().write(error_stream.stream_id, error_code).bytes
+        )
+        await self.socket_writer.drain()
+        error_stream.update_status(Stream.CLOSED)
 
     async def get_frame(self):
         while True:
@@ -58,7 +77,12 @@ class Worker(object):
             if frame:
                 if isinstance(frame, DataFrame):
                     current_stream = self.streams.get(str(frame.stream_id))
-                    await current_stream.data_frame_queue.put(frame)
+                    if frame.stream_id == 0:
+                        self.send_connection_error(self.last_stream_id)
+                    elif current_stream.status not in [Stream.OPEN, Stream.HALF_CLOSED_LOCAL]:
+                        self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
+                    else:
+                        await current_stream.data_frame_queue.put(frame)
                 else:
                     await self.frame_queue.put(frame)
             await asyncio.sleep(0)
@@ -73,11 +97,11 @@ class Worker(object):
                     and self.last_stream_id != self.frame.stream_id
                     and type(self.frame) not in [ContinuationFrame]
                 ):
-                    self.socket_writer.write(
-                        GoAwayFrame.connection_error_frame(self.last_stream_id).bytes
-                    )
-                    await self.socket_writer.drain()
-                if isinstance(self.frame, SettingsFrame):
+                    self.send_connection_error(self.last_stream_id)
+                elif current_stream.status == Stream.CLOSED:
+                    # Need to handle the case where frames already in transition are received
+                    self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
+                elif isinstance(self.frame, SettingsFrame):
                     self.connection_settings = self.frame
                     self.socket_writer.write(
                         SettingsFrame.get_acknowledgement_frame().bytes
@@ -91,23 +115,22 @@ class Worker(object):
                         self.socket_writer,
                     )
                     current_stream.stream_id = self.frame.stream_id
+                    current_stream.update_status(Stream.OPEN)
                     self.streams[str(current_stream.stream_id)] = current_stream
                     if self.frame.end_headers:
-                        current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
                         current_stream.asgi_scope = (
                             asgi_scope
                         ) = self.get_asgi_event_dict(self.frame)
                         current_stream.asgi_app = self.application(asgi_scope)
                         if self.frame.end_stream:
+                            current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
                             await current_stream.asgi_app(
                                 current_stream.trigger_asgi_application, current_stream.send_response
                             )
                         else:
-                            # self.tasks.append(
                             await current_stream.asgi_app(
                                     current_stream.asgi_more_data, current_stream.send_response
                                 )
-                            # )
                     else:
                         self.receiving_headers = True
                         current_stream.asgi_scope = self.get_asgi_event_dict(self.frame)
@@ -121,8 +144,8 @@ class Worker(object):
                             current_stream.asgi_scope
                         )
                         current_stream.stream_id = self.frame.stream_id
-                        current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
                         if self.frame.end_stream:
+                            current_stream.update_status(Stream.HALF_CLOSED_REMOTE)
                             await current_stream.asgi_app(
                                 current_stream.trigger_asgi_application, current_stream.send_response
                             )
@@ -151,45 +174,6 @@ class Worker(object):
         except Exception:
             print("Error occurred in handle_request")
             print((traceback.format_exc()))
-
-    def parse_request(self, raw_data):
-        if raw_data:
-            if not self.connection_established:
-                raw_data = raw_data[24:]
-                self.connection_established = True
-            if not raw_data:
-                bits = {}
-                self.connection_settings = SettingsFrame().read(raw_data)
-                return self.connection_settings
-            bits = bitstring.ConstBitStream(bytes=raw_data)
-            frame_type = bits.read("hex:8")
-            if frame_type == "04":
-                self.connection_settings = SettingsFrame().read(bits)
-                return self.connection_settings
-            elif frame_type == "01":
-                header_frame = HeadersFrame(self.header_encoder, self.header_decoder)
-                header_frame.read(bits)
-                return header_frame
-            elif frame_type == "03":
-                rst_frame = RstStreamFrame()
-                rst_frame.read(bits)
-                return rst_frame
-            elif frame_type == "09":
-                cont_frame = ContinuationFrame()
-                cont_frame.read(bits)
-                return cont_frame
-            elif frame_type == "00":
-                data_frame = DataFrame()
-                data_frame.read(bits)
-                return data_frame
-            elif frame_type == "08":
-                window_update_frame = WindowUpdateFrame()
-                window_update_frame.read(bits)
-                return window_update_frame
-            elif frame_type == "06":
-                ping_frame = PingFrame()
-                ping_frame.read(bits)
-                return ping_frame
 
     def get_asgi_event_dict(self, frame):
         event_dict = {
