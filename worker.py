@@ -44,7 +44,7 @@ class Worker(object):
     def set_app(self, application):
         self.application = application
     
-    def send_connection_error(self, last_stream_id):
+    async def send_connection_error(self, last_stream_id):
         """
         As per RFC 7540, An endpoint should send a goaway frame and close the TCP
         connection when a connection error is encountered.
@@ -56,7 +56,7 @@ class Worker(object):
         self.socket_writer.close()
         await self.socket_writer.wait_closed()
     
-    def send_stream_error(self, error_stream, error_code):
+    async def send_stream_error(self, error_stream, error_code):
         self.socket_writer.write(
             RstStreamFrame().write(error_stream.stream_id, error_code).bytes
         )
@@ -78,9 +78,9 @@ class Worker(object):
                 if isinstance(frame, DataFrame):
                     current_stream = self.streams.get(str(frame.stream_id))
                     if frame.stream_id == 0:
-                        self.send_connection_error(self.last_stream_id)
+                        await self.send_connection_error(self.last_stream_id)
                     elif current_stream.status not in [Stream.OPEN, Stream.HALF_CLOSED_LOCAL]:
-                        self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
+                        await self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
                     else:
                         await current_stream.data_frame_queue.put(frame)
                 else:
@@ -97,10 +97,10 @@ class Worker(object):
                     and self.last_stream_id != self.frame.stream_id
                     and type(self.frame) not in [ContinuationFrame]
                 ):
-                    self.send_connection_error(self.last_stream_id)
-                elif current_stream.status == Stream.CLOSED:
-                    # Need to handle the case where frames already in transition are received
-                    self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
+                    await self.send_connection_error(self.last_stream_id)
+                # elif current_stream.status == Stream.CLOSED:
+#                     # Need to handle the case where frames already in transition are received
+#                     await self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
                 elif isinstance(self.frame, SettingsFrame):
                     self.connection_settings = self.frame
                     self.socket_writer.write(

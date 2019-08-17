@@ -19,7 +19,7 @@ from pysigset import suspended_signals
 class MasterWorker:
     def __init__(self, app, host, port, request_queue_size):
         ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile="certificate.pem", keyfile="key.pem")
+        ssl_context.load_cert_chain(certfile="server.crt", keyfile="server.key")
         ssl_context.set_alpn_protocols(["h2", "spdy/2", "http/1.1"])
         self.ssl_context = ssl_context
         self.pid = os.getpid()
