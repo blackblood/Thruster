@@ -9,17 +9,12 @@ import argparse
 
 from worker import Worker
 from datetime import datetime
-from http_utils.base import (
-    get_http_status_text,
-    get_ext_from_mime_type,
-    get_mime_type_from_ext,
-)
 from pysigset import suspended_signals
 
 class MasterWorker:
-    def __init__(self, app, host, port, request_queue_size):
+    def __init__(self, app, host, port, request_queue_size, cert_file, key_file):
         ssl_context = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
-        ssl_context.load_cert_chain(certfile="server.crt", keyfile="server.key")
+        ssl_context.load_cert_chain(certfile=cert_file, keyfile=key_file)
         ssl_context.set_alpn_protocols(["h2", "spdy/2", "http/1.1"])
         self.ssl_context = ssl_context
         self.pid = os.getpid()
@@ -57,8 +52,11 @@ def serve_forever():
     parser.add_argument("--host", metavar="host", help="Host IP Address", default="127.0.0.1")
     parser.add_argument("--port", metavar="port", type=int, help="Port Number", default=8000)
     parser.add_argument("--queue-size", metavar="queue_size", type=int, help="Request Queue Size", default=100)
+    parser.add_argument("--cert-file", metavar="cert_file", help="SSL Certificate file", default="server.crt")
+    parser.add_argument("--key-file", metavar="key_file", help="SSL Key file", default="server.key")
+    
     arguments = parser.parse_args()
-    master_worker = MasterWorker(arguments.app, arguments.host, arguments.port, arguments.queue_size)
+    master_worker = MasterWorker(arguments.app, arguments.host, arguments.port, arguments.queue_size, arguments.cert_file, arguments.key_file)
     asyncio.run(master_worker.run())
 
 if __name__ == "__main__":

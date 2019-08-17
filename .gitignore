@@ -1,2 +1,6 @@
 *.pyc
 *.py.bak
+server.crt
+server.key
+server.csr
+mysite/
