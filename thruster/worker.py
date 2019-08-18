@@ -9,16 +9,16 @@ import asyncio
 import queue
 
 from hpack import Encoder, Decoder
-from http2.frames.settings_frame import SettingsFrame
-from http2.frames.headers_frame import HeadersFrame
-from http2.frames.continuation_frame import ContinuationFrame
-from http2.frames.data_frame import DataFrame
-from http2.frames.rst_frame import RstStreamFrame
-from http2.frames.window_update_frame import WindowUpdateFrame
-from http2.frames.ping_frame import PingFrame
-from http2.frames import utils
-from http2.stream import Stream
-from http2.frames.frame_factory import FrameFactory
+from thruster.http2.frames.settings_frame import SettingsFrame
+from thruster.http2.frames.headers_frame import HeadersFrame
+from thruster.http2.frames.continuation_frame import ContinuationFrame
+from thruster.http2.frames.data_frame import DataFrame
+from thruster.http2.frames.rst_frame import RstStreamFrame
+from thruster.http2.frames.window_update_frame import WindowUpdateFrame
+from thruster.http2.frames.ping_frame import PingFrame
+from thruster.http2.frames import utils
+from thruster.http2.stream import Stream
+from thruster.http2.frames.frame_factory import FrameFactory
 
 
 class Worker(object):

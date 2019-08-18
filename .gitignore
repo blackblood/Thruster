@@ -1,6 +1,9 @@
-*.pyc
-*.py.bak
-server.crt
-server.key
-server.csr
-mysite/
+/build
+/dist
+/thruster.egg-info
+/__pycache__
+/thruster/__init__.pyc
+/thruster/__pycache__/*
+/thruster/http2/__pycache__/*
+/thruster/http2/frames/__pycache__/*
+

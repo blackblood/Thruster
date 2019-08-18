@@ -7,7 +7,7 @@ import asyncio
 import sys
 import argparse
 
-from worker import Worker
+from thruster.worker import Worker
 from datetime import datetime
 from pysigset import suspended_signals
 
@@ -46,7 +46,7 @@ class MasterWorker:
         await asyncio.wait([t1, t2])
     
 
-def serve_forever():
+def main():
     parser = argparse.ArgumentParser(prog="HTTP/2 ASGI compatible web server for python.")
     parser.add_argument("--app", metavar="app", help="path to your ASGI Application")
     parser.add_argument("--host", metavar="host", help="Host IP Address", default="127.0.0.1")
@@ -60,4 +60,4 @@ def serve_forever():
     asyncio.run(master_worker.run())
 
 if __name__ == "__main__":
-    serve_forever()
+    main()
