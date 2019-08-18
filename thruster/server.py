@@ -7,7 +7,7 @@ import asyncio
 import sys
 import argparse
 
-from worker import Worker
+from thruster.worker import Worker
 from datetime import datetime
 from pysigset import suspended_signals
 
