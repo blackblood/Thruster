@@ -14,7 +14,7 @@ setuptools.setup(
     url="https://github.com/blackblood/Thruster",
     packages=setuptools.find_packages(),
     entry_points = {
-        'console_scripts': ['run-server=thruster.server:main'],
+        'console_scripts': ['thruster=thruster.server:main'],
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
