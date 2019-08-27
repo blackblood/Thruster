@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="thruster",
-    version="0.0.4",
+    version="0.0.8",
     author="Akshay Takkar",
     author_email="akshay.takkar101@gmail.com",
     description="ASGI compatible HTTP/2 web server",
