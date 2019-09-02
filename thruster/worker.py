@@ -98,13 +98,12 @@ class Worker(object):
                     and type(self.frame) not in [ContinuationFrame]
                 ):
                     await self.send_connection_error(self.last_stream_id)
-                # elif current_stream.status == Stream.CLOSED:
-#                     # Need to handle the case where frames already in transition are received
-#                     await self.send_stream_error(current_stream, RstStreamFrame.STREAM_CLOSED)
                 elif isinstance(self.frame, SettingsFrame):
                     self.connection_settings = self.frame
+                    # import ipdb; ipdb.set_trace()
                     self.socket_writer.write(
-                        SettingsFrame.get_acknowledgement_frame().bytes
+                        # SettingsFrame.get_acknowledgement_frame().bytes
+                        SettingsFrame.get_acknowledgement_frame(body={"initial_window_size": self.connection_settings.initial_window_size}).bytes
                     )
                     await self.socket_writer.drain()
                 elif isinstance(self.frame, HeadersFrame):

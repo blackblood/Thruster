@@ -71,15 +71,47 @@ class SettingsFrame(Frame):
                     raise ValueError("Unknown Settings Identifier.")
             return self
 
-    def write(self, flags={}):
+    def write(self, flags={}, body={}):
         encoded_flags = "0 0 0 0 0 0 0 0".split(" ")
-        self.ack = encoded_flags[7] = int(flags["ack"])
-        frame_format = super(SettingsFrame, self).frame_header_packing_format()
+        body_values_dict = {}
+        frame_length = 0
+        
+        if flags.get("ack"):
+            self.ack = encoded_flags[7] = int(flags["ack"])
+        if hasattr(self, 'ack'):
+            encoded_flags[7] = self.ack
+            
+        if self.initial_window_size:
+            body_values_dict.update({
+                "initial_window_size_identifier": self.SETTINGS_INITIAL_WINDOW_SIZE,
+                "initial_window_size_value": self.initial_window_size
+            })
+            frame_length += 6
+
+        if body.get("initial_window_size"):
+            self.initial_window_size = body.get("initial_window_size")
+            body_values_dict.update({
+                "initial_window_size_identifier": self.SETTINGS_INITIAL_WINDOW_SIZE,
+                "initial_window_size_value": self.initial_window_size
+            })
+            frame_length += 6
+        
+        frame_format = super(SettingsFrame, self).frame_header_packing_format() + "," + self._frame_body_packing_format()
         frame_data = super(SettingsFrame, self).write(
-            SettingsFrame.FRAME_TYPE, 0, encoded_flags, 0
+            SettingsFrame.FRAME_TYPE, frame_length, encoded_flags, 0
         )
+        frame_data.update(body_values_dict)
+        import ipdb; ipdb.set_trace()
         return bitstring.pack(frame_format, **frame_data)
 
+    def _frame_body_packing_format(self):
+        frame_body_format = ""
+        if self.initial_window_size:
+            frame_body_format += "uint:16=initial_window_size_identifier,"
+            frame_body_format += "uint:32=initial_window_size_value"
+        
+        return frame_body_format
+            
     @staticmethod
-    def get_acknowledgement_frame():
-        return SettingsFrame().write(flags={"ack": "1"})
+    def get_acknowledgement_frame(body={}):
+        return SettingsFrame().write(flags={"ack": "1"}, body=body)

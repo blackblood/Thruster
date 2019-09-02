@@ -44,7 +44,6 @@ class Stream(object):
         return asgi_event
 
     async def send_response(self, event):
-        print(event)
         if event["type"] == "http.response.start":
             headers_frame = HeadersFrame(self.header_encoder, self.header_decoder)
             headers_frame.headers = dict((k, v) for k, v in event["headers"])

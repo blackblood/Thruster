@@ -11,6 +11,16 @@ class GoAwayFrame(Frame):
 
     def read(self, raw_data):
         pass
+    
+    def read_header(self, raw_data):
+        super(GoAwayFrame, self).read(raw_data)
+    
+    def read_body(self, raw_data):
+        bits = bitstring.ConstBitStream(bytes=raw_data)
+        bits.read("bin:1")
+        print("Received a Go Away Frame...")
+        print("Last Stream ID: %d" % bits.read("uint:31"))
+        print("Error Code: %d" % bits.read("uint:32"))
 
     def write(self, error_code, last_stream_id):
         frame_header_format = super(GoAwayFrame, self).frame_header_packing_format()

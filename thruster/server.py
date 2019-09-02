@@ -7,7 +7,7 @@ import asyncio
 import sys
 import argparse
 
-from thruster.worker import Worker
+from worker import Worker
 from datetime import datetime
 from pysigset import suspended_signals
 
@@ -58,3 +58,6 @@ def main():
     arguments = parser.parse_args()
     master_worker = MasterWorker(arguments.app, arguments.host, arguments.port, arguments.queue_size, arguments.cert_file, arguments.key_file)
     asyncio.run(master_worker.run())
+
+if __name__ == "__main__":
+    main()
