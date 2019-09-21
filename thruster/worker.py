@@ -158,7 +158,11 @@ class Worker(object):
                         % (self.frame.error_code, self.frame.description)
                     )
                 elif isinstance(self.frame, WindowUpdateFrame):
-                    pass
+                    window_update_frame = WindowUpdateFrame()
+                    self.socket_writer.write(
+                        window_update_frame.write(15663105).bytes
+                    )
+                    await self.socket_writer.drain()
                 elif isinstance(self.frame, PingFrame):
                     if not self.frame.ack:
                         ping_frame = PingFrame()
